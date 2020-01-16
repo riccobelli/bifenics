@@ -1,1 +1,2 @@
-from minics.parameter_continuation import parameter_continuation
+from minics.continuation_methods import ParameterContinuation
+from minics.nonlinear_problem import NonlinearProblem

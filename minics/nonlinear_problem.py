@@ -1,10 +1,9 @@
 class NonlinearProblem(object):
-    def __init__(self):
-        '''
-        Generates a new object describing a nonlinear_problem
-        '''
+    """
+    Generates a new object describing a nonlinear problem
+    """
 
-    def mesh(self, comm):
+    def mesh(self):
         return NotImplementedError
 
     def function_space(self, mesh):
