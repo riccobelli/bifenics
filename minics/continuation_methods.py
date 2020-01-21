@@ -14,17 +14,20 @@ class ParameterContinuation(object):
         self._param_end = end
         self._dt = dt
         self._min_dt = min_dt
-        self._solver_params = {'nonlinear_solver': 'snes',
-                               'snes_solver': {
-                                   'linear_solver': 'mumps',
-                                   'absolute_tolerance': 1e-10,
-                                   'relative_tolerance': 1e-10,
-                                   'maximum_iterations': 10,
-                                   'error_on_nonconvergence': False
-                               }
-                               }
+        self._solver_params = {'nonlinear_solver': 'snes'}
+
+        # Update adding user defined solver Parameters
+        self._solver_params.update(problem.solver_parameters())
+        # Disable error on SNES non nonconvergence
+        if 'nonlinear_solver' not in self._solver_params:
+            self._solver_params['nonlinear_solver'] == 'snes'
+        solver_type = self._solver_params['nonlinear_solver']
+        self._solver_params[solver_type +
+                            '_solver']['error_on_nonconvergence'] = False
 
     def log(self, msg, warning=False, success=False):
+        # Function for printing log messages in parallel
+
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
         if rank == 0 and warning:
@@ -63,23 +66,31 @@ class ParameterContinuation(object):
         t = 0.0
         self.log("Parameter continuation started")
         while round(t, 10) < T and self._dt > 1e-6:
+
             t += self._dt
             round(t, 8)
-            self.param.assign(self._param_start +
-                              (self._param_end - self._param_start) * t)
-            self.log("Percentage completed: " +
-                     str(round(t * 100, 10)) + "%" + " " + self._param_name +
-                     ": " + str(round(float(self.param), 10)))
+            self.param.assign(
+                self._param_start + (self._param_end - self._param_start) * t)
+
+            self.log(
+                "Percentage completed: " + str(round(t * 100, 10)) + "%" + " "
+                + self._param_name + ": " + str(round(float(self.param), 10)))
+
             ok = 0
             while ok == 0:
                 status = self.pc_nonlinear_solver(residual, u, bcs, J)
                 if status[1] is True:
-                    u0.assign(u)
+                    # New solution found, we save it
                     self.problem.monitor()
                     self.log("Nonlinear solver converged", success=True)
+                    u0.assign(u)
                     ok = 1
                 else:
-                    self.log("Nonlinear solver did not converge, halfing step")
+                    # The nonlinear solver failed to converge, we halve the
+                    # step and we start again the nonlinear solver.
+                    self.log(
+                        "Nonlinear solver did not converge, halving step",
+                        warning=False)
                     self._dt = self._dt / 2.
                     t += -self._dt
                     self.param.assign(

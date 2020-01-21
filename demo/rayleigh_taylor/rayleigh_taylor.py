@@ -33,16 +33,19 @@ class RayleighTaylor(NonlinearProblem):
             TOL = 1e-4
             return on_boundary and near(x[0], self.L, TOL)
 
-    def __init__(self, L, H):
+    def __init__(self, L, H, mu, K, nx=10, ny=10):
         self.L = L
         self.H = H
+        self.nx = nx
+        self.ny = ny
 
         # Elastic constants
-        self.mu = Constant(1)
-        self.K = Constant(10)
+        self.mu = Constant(mu)
+        self.K = Constant(K)
 
     def mesh(self):
-        return RectangleMesh(Point((0, 0)), Point((self.L, self.H)), 10, 10)
+        return RectangleMesh(
+            Point((0, 0)), Point((self.L, self.H)), self.nx, self.ny)
 
     def function_space(self, mesh):
         return VectorFunctionSpace(mesh, "CG", 1)
@@ -78,7 +81,20 @@ class RayleighTaylor(NonlinearProblem):
 
         return derivative(psi, u, v)
 
+    def solver_parameters(self):
+        parameters = {
+            'snes_solver': {
+                'linear_solver': 'mumps',
+                'absolute_tolerance': 1e-10,
+                'relative_tolerance': 1e-10,
+                'maximum_iterations': 10,
+            }
+        }
+        return parameters
 
-rt = RayleighTaylor(1, 1)
-analysis = ParameterContinuation(rt, "gamma", start=0, end=1, dt=.1)
-analysis.run()
+
+if __name__ == '__main__':
+    rt = RayleighTaylor(1, 1, 1, 10, nx=10, ny=10)
+    analysis = ParameterContinuation(rt, "gamma", start=0, end=1, dt=.1)
+    analysis.run()
+    print(analysis._solver_params)
