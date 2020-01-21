@@ -1,0 +1,76 @@
+from minics import NonlinearProblem, ParameterContinuation
+from dolfin import RectangleMesh, Point, VectorFunctionSpace, grad, Identity,\
+    inner, derivative, dx, tr, Constant, ln, det, SubDomain, near,\
+    DirichletBC, MeshFunction
+
+
+class RayleighTaylor(NonlinearProblem):
+
+    class Bottom(SubDomain):
+        def inside(self, x, on_boundary):
+            TOL = 1e-4
+            return on_boundary and near(x[1], 0., TOL)
+
+    class Left(SubDomain):
+        def inside(self, x, on_boundary):
+            TOL = 1e-4
+            return on_boundary and near(x[0], 0., TOL)
+
+    class Right(SubDomain):
+        def __init__(self, L):
+            self.L = L
+            SubDomain.__init__(self)  # Call base class constructor!
+
+        def inside(self, x, on_boundary):
+            TOL = 1e-4
+            return on_boundary and near(x[0], self.L, TOL)
+
+    def __init__(self, L, H):
+        self.L = L
+        self.H = H
+
+        # Elastic constants
+        self.mu = Constant(1)
+        self.K = Constant(10)
+
+    def mesh(self):
+        return RectangleMesh(Point((0, 0)), Point((self.L, self.H)), 10, 10)
+
+    def function_space(self, mesh):
+        return VectorFunctionSpace(mesh, "CG", 1)
+
+    def parameters(self):
+        return {"gamma": Constant(0)}
+
+    def boundary_conditions(self, mesh, V):
+        bottom = self.Bottom()
+        left = self.Left()
+        right = self.Right(self.L)
+
+        boundaries = MeshFunction("size_t", mesh, 1)
+        boundaries.set_all(0)
+        bottom.mark(boundaries, 1)
+        left.mark(boundaries, 2)
+        right.mark(boundaries, 3)
+
+        bcb = DirichletBC(V, Constant((0, 0)), boundaries, 1)
+        bcl = DirichletBC(V.sub(0), Constant(0), boundaries, 2)
+        bcr = DirichletBC(V.sub(0), Constant(0), boundaries, 3)
+
+        return [bcb, bcl, bcr]
+
+    def residual(self, u, v, gamma):
+        F = Identity(2) + grad(u)
+        C = F.T * F
+        J = det(F)
+        W = self.mu * (tr(C) - 2 * ln(J)) + self.K * ln(J) * ln(J)
+
+        ext_forces = gamma * inner(u, Constant((0, 1)))
+        psi = (W - ext_forces) * dx
+
+        return derivative(psi, u, v)
+
+
+rt = RayleighTaylor(1, 1)
+analysis = ParameterContinuation(rt, "gamma", start=0, end=1, dt=.1)
+analysis.run()

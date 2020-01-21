@@ -11,3 +11,6 @@ class NonlinearProblem(object):
 
     def residual(self, u):
         return NotImplementedError
+
+    def monitor(self):
+        pass
