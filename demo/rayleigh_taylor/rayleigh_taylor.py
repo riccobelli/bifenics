@@ -1,3 +1,11 @@
+# We consider a rectangle, composed of a slightly compressible neo-Hookean
+# material and subjected to a body force gamma along the y direction. It
+# is inspired by the problem described in
+#
+# Mora, S., Phou, T., Fromental, J. M., & Pomeau, Y. (2014). "Gravity
+# driven instability in elastic solid layers". Physical review letters,
+# 113(17), 178301.
+
 from minics import NonlinearProblem, ParameterContinuation
 from dolfin import RectangleMesh, Point, VectorFunctionSpace, grad, Identity,\
     inner, derivative, dx, tr, Constant, ln, det, SubDomain, near,\
