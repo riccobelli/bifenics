@@ -83,6 +83,7 @@ class RayleighTaylor(NonlinearProblem):
 
     def solver_parameters(self):
         parameters = {
+            'nonlinear_solver': 'snes',
             'snes_solver': {
                 'linear_solver': 'mumps',
                 'absolute_tolerance': 1e-10,
@@ -95,6 +96,5 @@ class RayleighTaylor(NonlinearProblem):
 
 if __name__ == '__main__':
     rt = RayleighTaylor(1, 1, 1, 10, nx=10, ny=10)
-    analysis = ParameterContinuation(rt, "gamma", start=0, end=1, dt=.1)
+    analysis = ParameterContinuation(rt, "gamma", start=0, end=20, dt=.1)
     analysis.run()
-    print(analysis._solver_params)

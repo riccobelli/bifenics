@@ -14,16 +14,18 @@ class ParameterContinuation(object):
         self._param_end = end
         self._dt = dt
         self._min_dt = min_dt
-        self._solver_params = {'nonlinear_solver': 'snes'}
+        self._solver_params = {}
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
-        # Disable error on SNES non nonconvergence
+
+        # Disable error on non nonconvergence
         if 'nonlinear_solver' not in self._solver_params:
             self._solver_params['nonlinear_solver'] == 'snes'
         solver_type = self._solver_params['nonlinear_solver']
         self._solver_params[solver_type +
                             '_solver']['error_on_nonconvergence'] = False
+        print(self._solver_params)
 
     def log(self, msg, warning=False, success=False):
         # Function for printing log messages in parallel
