@@ -1,13 +1,22 @@
 # Module collecting several class, each being a general continuation method
 from dolfin import Function, derivative, TestFunction, TrialFunction, \
-    NonlinearVariationalProblem, NonlinearVariationalSolver
+    NonlinearVariationalProblem, NonlinearVariationalSolver, XDMFFile
 from mpi4py import MPI
 import time
 
 
 class ParameterContinuation(object):
 
-    def __init__(self, problem, param_name, start=0, end=0, dt=0, min_dt=1e-6):
+    def __init__(self,
+                 problem,
+                 param_name,
+                 start=0,
+                 end=0,
+                 dt=0,
+                 min_dt=1e-6,
+                 saving_file_parameters={},
+                 output_file_name="output/results.xdmf"):
+
         self.problem = problem
         self._param_name = param_name
         self._param_start = start
@@ -15,6 +24,8 @@ class ParameterContinuation(object):
         self._dt = dt
         self._min_dt = min_dt
         self._solver_params = {}
+        self._save_file = XDMFFile(output_file_name)
+        self._save_file.parameters.update(saving_file_parameters)
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
@@ -25,7 +36,6 @@ class ParameterContinuation(object):
         solver_type = self._solver_params['nonlinear_solver']
         self._solver_params[solver_type +
                             '_solver']['error_on_nonconvergence'] = False
-        print(self._solver_params)
 
     def log(self, msg, warning=False, success=False):
         # Function for printing log messages in parallel

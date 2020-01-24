@@ -85,7 +85,7 @@ class RayleighTaylor(NonlinearProblem):
         parameters = {
             'nonlinear_solver': 'snes',
             'snes_solver': {
-                'linear_solver': 'mumps',
+                'linear_solver': 'lu',
                 'absolute_tolerance': 1e-10,
                 'relative_tolerance': 1e-10,
                 'maximum_iterations': 10,
@@ -95,6 +95,9 @@ class RayleighTaylor(NonlinearProblem):
 
 
 if __name__ == '__main__':
+    XDMF_options = {"flush_output": True,
+                    "functions_share_mesh": True,
+                    "rewrite_function_mesh": False}
     rt = RayleighTaylor(1, 1, 1, 10, nx=10, ny=10)
-    analysis = ParameterContinuation(rt, "gamma", start=0, end=20, dt=.1)
+    analysis = ParameterContinuation(rt, "gamma", start=0, end=10, dt=.1)
     analysis.run()
