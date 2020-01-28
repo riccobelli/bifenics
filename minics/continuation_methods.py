@@ -1,8 +1,7 @@
 # Module collecting several class, each being a general continuation method
 from dolfin import Function, derivative, TestFunction, TrialFunction, \
     NonlinearVariationalProblem, NonlinearVariationalSolver, XDMFFile
-from mpi4py import MPI
-import time
+from minics.log import log
 
 
 class ParameterContinuation(object):
@@ -14,6 +13,7 @@ class ParameterContinuation(object):
                  end=0,
                  dt=0,
                  min_dt=1e-6,
+                 save_output=True,
                  saving_file_parameters={},
                  output_file_name="output/results.xdmf"):
 
@@ -26,6 +26,7 @@ class ParameterContinuation(object):
         self._solver_params = {}
         self._save_file = XDMFFile(output_file_name)
         self._save_file.parameters.update(saving_file_parameters)
+        self._save_output = save_output
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
@@ -37,27 +38,6 @@ class ParameterContinuation(object):
         self._solver_params[solver_type +
                             '_solver']['error_on_nonconvergence'] = False
 
-    def log(self, msg, warning=False, success=False):
-        # Function for printing log messages in parallel
-
-        comm = MPI.COMM_WORLD
-        rank = comm.Get_rank()
-        if rank == 0 and warning:
-            fmt = "\033[1;37;31m%s\033[0m"  # Red
-        elif rank == 0 and success:
-            fmt = "\033[1;37;32m%s\033[0m"  # Green
-        elif rank == 0:
-            fmt = "\033[1;37;34m%s\033[0m"  # Blue
-        if rank == 0:
-            timestamp = "[%s] " % time.strftime("%H:%M:%S")
-            print(fmt % (timestamp + msg))
-
-    def pc_nonlinear_solver(self, residual, u, bcs, J):
-        dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
-        solver = NonlinearVariationalSolver(dolfin_problem)
-        solver.parameters.update(self._solver_params)
-        return solver.solve()
-
     def run(self):
         # Setting mesh and defining functional spaces
         mesh = self.problem.mesh()
@@ -66,27 +46,27 @@ class ParameterContinuation(object):
         u0 = Function(V)
 
         # Setting parameters values
-        self.param = self.problem.parameters()[self._param_name]
-        self.param.assign(self._param_start)
+        param = self.problem.parameters()[self._param_name]
+        param.assign(self._param_start)
 
         bcs = self.problem.boundary_conditions(mesh, V)
-        residual = self.problem.residual(u, TestFunction(V), self.param)
+        residual = self.problem.residual(u, TestFunction(V), param)
         J = derivative(residual, u, TrialFunction(V))
 
         # Start analysis
         T = 1.0  # total simulation time
         t = 0.0
-        self.log("Parameter continuation started")
+        log("Parameter continuation started")
         while round(t, 10) < T and self._dt > 1e-6:
 
             t += self._dt
             round(t, 8)
-            self.param.assign(
+            param.assign(
                 self._param_start + (self._param_end - self._param_start) * t)
 
-            self.log(
+            log(
                 "Percentage completed: " + str(round(t * 100, 10)) + "%" + " "
-                + self._param_name + ": " + str(round(float(self.param), 10)))
+                + self._param_name + ": " + str(round(float(param), 10)))
 
             ok = 0
             while ok == 0:
@@ -94,19 +74,35 @@ class ParameterContinuation(object):
                 if status[1] is True:
                     # New solution found, we save it
                     self.problem.monitor()
-                    self.log("Nonlinear solver converged", success=True)
+                    log("Nonlinear solver converged", success=True)
+                    if self._save_output is True:
+                        self.save_function(u, param, self._save_file)
                     u0.assign(u)
                     ok = 1
                 else:
                     # The nonlinear solver failed to converge, we halve the
                     # step and we start again the nonlinear solver.
-                    self.log(
+                    log(
                         "Nonlinear solver did not converge, halving step",
                         warning=False)
                     self._dt = self._dt / 2.
                     t += -self._dt
-                    self.param.assign(
+                    param.assign(
                         self._param_start +
                         (self._param_end - self._param_start) * t)
-                    print(float(self.param))
                     u.assign(u0)
+
+    def pc_nonlinear_solver(self, residual, u, bcs, J):
+        dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
+        solver = NonlinearVariationalSolver(dolfin_problem)
+        solver.parameters.update(self._solver_params)
+        return solver.solve()
+
+    def save_function(self, function, param, xdmf_file):
+        # Convert param (which is a Dolfin Constant) to a float, then we take
+        # its absolute value
+        t = float(param)
+        t = round(abs(t), 10)
+
+        # We save the function into the output file
+        xdmf_file.write(function, t)

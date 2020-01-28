@@ -45,7 +45,7 @@ class RayleighTaylor(NonlinearProblem):
 
     def mesh(self):
         return RectangleMesh(
-            Point((0, 0)), Point((self.L, self.H)), self.nx, self.ny)
+            Point((0, 0)), Point((self.L, self.H)), self.nx, self.ny, "left/right")
 
     def function_space(self, mesh):
         return VectorFunctionSpace(mesh, "CG", 1)
@@ -85,7 +85,7 @@ class RayleighTaylor(NonlinearProblem):
         parameters = {
             'nonlinear_solver': 'snes',
             'snes_solver': {
-                'linear_solver': 'lu',
+                'linear_solver': 'mumps',
                 'absolute_tolerance': 1e-10,
                 'relative_tolerance': 1e-10,
                 'maximum_iterations': 10,
@@ -98,6 +98,6 @@ if __name__ == '__main__':
     XDMF_options = {"flush_output": True,
                     "functions_share_mesh": True,
                     "rewrite_function_mesh": False}
-    rt = RayleighTaylor(1, 1, 1, 10, nx=10, ny=10)
-    analysis = ParameterContinuation(rt, "gamma", start=0, end=10, dt=.1)
+    rt = RayleighTaylor(1, 1, 1, 100, nx=30, ny=30)
+    analysis = ParameterContinuation(rt, "gamma", start=0, end=30, dt=.05)
     analysis.run()
