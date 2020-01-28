@@ -18,7 +18,7 @@ class NonlinearProblem(object):
     def solver_parameters(self):
         return {}
 
-    def monitor(self):
+    def monitor(self, solution, param):
         pass
 
     def initial_guess(self, V):

@@ -1,9 +1,16 @@
 from minics import NonlinearProblem, ParameterContinuation
 from dolfin import IntervalMesh, Constant, exp, inner, grad, dx, DirichletBC,\
-    FunctionSpace
+    FunctionSpace, norm
+import numpy as np
+import matplotlib.pyplot as plt
+from mpi4py import MPI
 
 
 class Bratu(NonlinearProblem):
+
+    def __init__(self):
+        self.lmbdaplot = np.array([])
+        self.uplot = np.array([])
 
     def mesh(self):
         return IntervalMesh(1000, 0, 1)
@@ -34,6 +41,12 @@ class Bratu(NonlinearProblem):
     def boundary_conditions(self, mesh, V):
         return DirichletBC(V, Constant(0), "on_boundary")
 
+    def monitor(self, u, lmbda):
+        #u_linf = norm(u.vector(), "linf")
+        #self.uplot = np.append(self.uplot, u_linf)
+        self.uplot = np.append(self.uplot, u(0.5))
+        self.lmbdaplot = np.append(self.lmbdaplot, float(lmbda))
+
 
 if __name__ == '__main__':
     bratu = Bratu()
@@ -48,3 +61,8 @@ if __name__ == '__main__':
         dt=.01,
         saving_file_parameters=XDMF_options)
     analysis.run()
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    if rank == 0:
+        plt.plot(bratu.lmbdaplot, bratu.uplot)
+        plt.show()
