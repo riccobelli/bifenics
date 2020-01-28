@@ -1,4 +1,4 @@
-from minics import NonlinearProblem, ParameterContinuation
+from bifenics import NonlinearProblem, ParameterContinuation
 from dolfin import IntervalMesh, Constant, exp, inner, grad, dx, DirichletBC,\
     FunctionSpace, norm
 import numpy as np

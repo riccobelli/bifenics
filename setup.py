@@ -2,11 +2,11 @@ from setuptools import setup
 
 
 setup(
-    name='MIniCS',
+    name='BiFEniCS',
     author='Davide Riccobelli',
     author_email='driccobe@sissa.it',
     version='0.1dev',
-    packages=['minics', ],
+    packages=['bifenics', ],
     license='GPLv3',
     long_description='''
     TBD

@@ -1,7 +1,7 @@
 # Module collecting several class, each being a general continuation method
 from dolfin import Function, derivative, TestFunction, TrialFunction, \
     NonlinearVariationalProblem, NonlinearVariationalSolver, XDMFFile
-from minics.log import log
+from bifenics.log import log
 
 
 class ParameterContinuation(object):
