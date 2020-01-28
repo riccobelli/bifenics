@@ -1,6 +1,6 @@
 from bifenics import NonlinearProblem, ParameterContinuation
 from dolfin import IntervalMesh, Constant, exp, inner, grad, dx, DirichletBC,\
-    FunctionSpace, norm
+    FunctionSpace  # , norm
 import numpy as np
 import matplotlib.pyplot as plt
 from mpi4py import MPI

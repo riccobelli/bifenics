@@ -111,3 +111,8 @@ class ParameterContinuation(object):
 
         # We save the function into the output file
         xdmf_file.write(function, t)
+
+
+class ArclengthContinuation(object):
+    def __init__(self):
+        raise NotImplementedError
