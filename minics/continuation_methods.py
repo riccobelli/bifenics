@@ -33,7 +33,8 @@ class ParameterContinuation(object):
 
         # Disable error on non nonconvergence
         if 'nonlinear_solver' not in self._solver_params:
-            self._solver_params['nonlinear_solver'] == 'snes'
+            self._solver_params['nonlinear_solver'] = 'snes'
+            self._solver_params['snes_solver'] = {}
         solver_type = self._solver_params['nonlinear_solver']
         self._solver_params[solver_type +
                             '_solver']['error_on_nonconvergence'] = False
