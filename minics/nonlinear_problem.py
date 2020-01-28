@@ -1,3 +1,6 @@
+from dolfin import Function
+
+
 class NonlinearProblem(object):
     """
     Generates a new object describing a nonlinear problem
@@ -17,3 +20,6 @@ class NonlinearProblem(object):
 
     def monitor(self):
         pass
+
+    def initial_guess(self, V):
+        return Function(V)

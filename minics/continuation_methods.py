@@ -46,6 +46,10 @@ class ParameterContinuation(object):
         u = Function(V)
         u0 = Function(V)
 
+        # Set initial guess
+        u.assign(self.problem.initial_guess(V))
+        u0.assign(self.problem.initial_guess(V))
+
         # Setting parameters values
         param = self.problem.parameters()[self._param_name]
         param.assign(self._param_start)
