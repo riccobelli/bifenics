@@ -99,5 +99,11 @@ if __name__ == '__main__':
                     "functions_share_mesh": True,
                     "rewrite_function_mesh": False}
     rt = RayleighTaylor(1, 1, 1, 100, nx=30, ny=30)
-    analysis = ParameterContinuation(rt, "gamma", start=0, end=30, dt=.05)
+    analysis = ParameterContinuation(
+        rt,
+        "gamma",
+        start=0,
+        end=30,
+        dt=.05,
+        saving_file_parameters=XDMF_options)
     analysis.run()
