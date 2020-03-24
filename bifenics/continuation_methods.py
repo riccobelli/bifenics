@@ -1,6 +1,12 @@
 # Module collecting several class, each being a general continuation method
-from dolfin import Function, derivative, TestFunction, TrialFunction, \
-    NonlinearVariationalProblem, NonlinearVariationalSolver, XDMFFile
+from dolfin import (
+    Function,
+    derivative,
+    TestFunction,
+    TrialFunction,
+    NonlinearVariationalProblem,
+    NonlinearVariationalSolver,
+    XDMFFile)
 from bifenics.log import log
 
 
@@ -36,8 +42,7 @@ class ParameterContinuation(object):
             self._solver_params['nonlinear_solver'] = 'snes'
             self._solver_params['snes_solver'] = {}
         solver_type = self._solver_params['nonlinear_solver']
-        self._solver_params[solver_type +
-                            '_solver']['error_on_nonconvergence'] = False
+        self._solver_params[solver_type + '_solver']['error_on_nonconvergence'] = False
 
     def run(self):
         # Setting mesh and defining functional spaces
@@ -66,15 +71,14 @@ class ParameterContinuation(object):
 
             t += self._dt
             round(t, 8)
-            param.assign(
-                self._param_start + (self._param_end - self._param_start) * t)
+            param.assign(self._param_start + (self._param_end - self._param_start) * t)
 
-            log(
-                "Percentage completed: " + str(round(t * 100, 10)) + "%" + " "
-                + self._param_name + ": " + str(round(float(param), 10)))
+            log("Percentage completed: " + str(round(t * 100, 10)) + "%" +
+                " " + self._param_name + ": " + str(round(float(param), 10)))
 
             ok = 0
             while ok == 0:
+                self.problem.modify_initial_guess(u, param)
                 status = self.pc_nonlinear_solver(residual, u, bcs, J)
                 if status[1] is True:
                     # New solution found, we save it
@@ -85,16 +89,12 @@ class ParameterContinuation(object):
                     u0.assign(u)
                     ok = 1
                 else:
-                    # The nonlinear solver failed to converge, we halve the
-                    # step and we start again the nonlinear solver.
-                    log(
-                        "Nonlinear solver did not converge, halving step",
-                        warning=False)
+                    # The nonlinear solver failed to converge, we halve the step and we start
+                    # again the nonlinear solver.
+                    log("Nonlinear solver did not converge, halving step", warning=True)
                     self._dt = self._dt / 2.
                     t += -self._dt
-                    param.assign(
-                        self._param_start +
-                        (self._param_end - self._param_start) * t)
+                    param.assign(self._param_start + (self._param_end - self._param_start) * t)
                     u.assign(u0)
 
     def pc_nonlinear_solver(self, residual, u, bcs, J):
@@ -104,8 +104,7 @@ class ParameterContinuation(object):
         return solver.solve()
 
     def save_function(self, function, param, xdmf_file):
-        # Convert param (which is a Dolfin Constant) to a float, then we take
-        # its absolute value
+        # Convert param (which is a Dolfin Constant) to a float, then we take its absolute value
         t = float(param)
         t = round(abs(t), 10)
 

@@ -41,7 +41,7 @@ class Bratu(NonlinearProblem):
     def boundary_conditions(self, mesh, V):
         return DirichletBC(V, Constant(0), "on_boundary")
 
-    def monitor(self, u, lmbda):
+    def monitor(self, u, lmbda, output_file):
         #u_linf = norm(u.vector(), "linf")
         #self.uplot = np.append(self.uplot, u_linf)
         self.uplot = np.append(self.uplot, u(0.5))
