@@ -81,8 +81,11 @@ class ParameterContinuation(object):
                 self.problem.modify_initial_guess(u, param)
                 status = self.pc_nonlinear_solver(residual, u, bcs, J)
                 if status[1] is True:
-                    # New solution found, we save it
+
                     self.problem.monitor(u, param, self._save_file)
+
+                    # New solution found, we save it
+
                     log("Nonlinear solver converged", success=True)
                     if self._save_output is True:
                         self.save_function(u, param, self._save_file)
