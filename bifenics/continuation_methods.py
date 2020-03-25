@@ -8,6 +8,7 @@ from dolfin import (
     NonlinearVariationalSolver,
     XDMFFile)
 from bifenics.log import log
+import os
 
 
 class ParameterContinuation(object):
@@ -21,8 +22,13 @@ class ParameterContinuation(object):
                  min_dt=1e-6,
                  save_output=True,
                  saving_file_parameters={},
-                 output_file_name="output/results.xdmf"):
+                 output_folder="output",
+                 remove_old_output_folder=True):
 
+        if remove_old_output_folder is True:
+            os.system("rm -r " + output_folder)
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
         self.problem = problem
         self._param_name = param_name
         self._param_start = start
@@ -30,7 +36,7 @@ class ParameterContinuation(object):
         self._dt = dt
         self._min_dt = min_dt
         self._solver_params = {}
-        self._save_file = XDMFFile(output_file_name)
+        self._save_file = XDMFFile(output_folder + "/results.xdmf")
         self._save_file.parameters.update(saving_file_parameters)
         self._save_output = save_output
 
