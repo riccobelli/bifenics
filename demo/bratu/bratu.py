@@ -1,4 +1,4 @@
-from bifenics import NonlinearProblem, ParameterContinuation
+from bifenics import BifenicsProblem, ParameterContinuation
 from dolfin import IntervalMesh, Constant, exp, inner, grad, dx, DirichletBC,\
     FunctionSpace, parameters
 import numpy as np
@@ -8,7 +8,7 @@ from mpi4py import MPI
 parameters["allow_extrapolation"] = True
 
 
-class Bratu(NonlinearProblem):
+class Bratu(BifenicsProblem):
 
     def __init__(self):
         self.lmbdaplot = np.array([])

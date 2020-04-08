@@ -6,13 +6,13 @@
 # driven instability in elastic solid layers". Physical Review Letters,
 # 113(17), 178301.
 
-from bifenics import NonlinearProblem, ParameterContinuation
+from bifenics import BifenicsProblem, ParameterContinuation
 from dolfin import RectangleMesh, Point, VectorFunctionSpace, grad, Identity,\
     inner, derivative, dx, tr, Constant, ln, det, SubDomain, near,\
     DirichletBC, MeshFunction
 
 
-class RayleighTaylor(NonlinearProblem):
+class RayleighTaylor(BifenicsProblem):
 
     class Bottom(SubDomain):
         def inside(self, x, on_boundary):
