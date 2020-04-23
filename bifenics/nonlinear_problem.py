@@ -1,7 +1,7 @@
 from dolfin import Function
 
 
-class NonlinearProblem(object):
+class BifenicsProblem(object):
     """
     Generates a new object describing a nonlinear problem
     """
