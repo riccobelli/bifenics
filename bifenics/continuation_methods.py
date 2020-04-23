@@ -9,6 +9,7 @@ from dolfin import (
     XDMFFile)
 from bifenics.log import log
 import os
+from mpi4py import MPI
 
 
 class ParameterContinuation(object):
@@ -25,9 +26,12 @@ class ParameterContinuation(object):
                  output_folder="output",
                  remove_old_output_folder=True):
 
-        if remove_old_output_folder is True:
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+        if rank == 0 and remove_old_output_folder is True:
             os.system("rm -r " + output_folder)
-        if not os.path.exists(output_folder):
+        if rank == 0 and not os.path.exists(output_folder):
             os.makedirs(output_folder)
         self.problem = problem
         self._param_name = param_name
