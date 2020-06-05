@@ -111,29 +111,29 @@ class ParameterContinuation(object):
                         t += -self._dt
                         param.assign(self._param_start + (self._param_end - self._param_start) * t)
                         u.assign(u0)
-                else:
-                    while ok == 0:
-                        self.problem.modify_initial_guess(u, param)
-                        try:
-                            self.pc_nonlinear_solver(residual, u, bcs, J)
-                            self.problem.monitor(u, param, self._save_file)
+            else:
+                while ok == 0:
+                    self.problem.modify_initial_guess(u, param)
+                    try:
+                        self.pc_nonlinear_solver(residual, u, bcs, J)
+                        self.problem.monitor(u, param, self._save_file)
 
-                            # New solution found, we save it
+                        # New solution found, we save it
 
-                            log("Nonlinear solver converged", success=True)
-                            if self._save_output is True:
-                                self.save_function(u, param, self._save_file)
-                            u0.assign(u)
-                            ok = 1
-                        except:
-                            # The nonlinear solver failed to converge, we halve the step and we
-                            # start again the nonlinear solver.
-                            log("Nonlinear solver did not converge, halving step", warning=True)
-                            self._dt = self._dt / 2.
-                            t += -self._dt
-                            param.assign(self._param_start +
-                                         (self._param_end - self._param_start) * t)
-                            u.assign(u0)
+                        log("Nonlinear solver converged", success=True)
+                        if self._save_output is True:
+                            self.save_function(u, param, self._save_file)
+                        u0.assign(u)
+                        ok = 1
+                    except:
+                        # The nonlinear solver failed to converge, we halve the step and we
+                        # start again the nonlinear solver.
+                        log("Nonlinear solver did not converge, halving step", warning=True)
+                        self._dt = self._dt / 2.
+                        t += -self._dt
+                        param.assign(self._param_start +
+                                     (self._param_end - self._param_start) * t)
+                        u.assign(u0)
 
     def pc_nonlinear_solver(self, residual, u, bcs, J):
         dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
