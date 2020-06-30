@@ -78,7 +78,8 @@ class ParameterContinuation(object):
         T = 1.0  # total simulation time
         t = 0.0
         log("Parameter continuation started")
-        while round(t, 10) < T and self._dt > 1e-6:
+        goOn = True
+        while round(t, 10) < T and self._dt > 1e-6 and goOn is True:
 
             t += self._dt
             round(t, 8)
@@ -88,6 +89,7 @@ class ParameterContinuation(object):
                 " " + self._param_name + ": " + str(round(float(param), 10)))
 
             ok = 0
+            n_halving = 0
             if self._solver_params['nonlinear_solver'] == 'snes':
                 while ok == 0:
                     self.problem.modify_initial_guess(u, param)
@@ -104,6 +106,7 @@ class ParameterContinuation(object):
                         u0.assign(u)
                         ok = 1
                     else:
+                        n_halving += 1
                         # The nonlinear solver failed to converge, we halve the step and we start
                         # again the nonlinear solver.
                         log("Nonlinear solver did not converge, halving step", warning=True)
@@ -111,6 +114,10 @@ class ParameterContinuation(object):
                         t += -self._dt
                         param.assign(self._param_start + (self._param_end - self._param_start) * t)
                         u.assign(u0)
+                        if n_halving > 5:
+                            ok = 1
+                            log("Max halving reached! Ending simulation", warning=True)
+                            goOn = False
             else:
                 while ok == 0:
                     self.problem.modify_initial_guess(u, param)
@@ -125,7 +132,8 @@ class ParameterContinuation(object):
                             self.save_function(u, param, self._save_file)
                         u0.assign(u)
                         ok = 1
-                    except:
+                    except BaseException:
+                        n_halving += 1
                         # The nonlinear solver failed to converge, we halve the step and we
                         # start again the nonlinear solver.
                         log("Nonlinear solver did not converge, halving step", warning=True)
@@ -134,6 +142,10 @@ class ParameterContinuation(object):
                         param.assign(self._param_start +
                                      (self._param_end - self._param_start) * t)
                         u.assign(u0)
+                        if n_halving > 5:
+                            ok = 1
+                            log("Max halving reached! Ending simulation", warning=True)
+                            goOn = False
 
     def pc_nonlinear_solver(self, residual, u, bcs, J):
         dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
