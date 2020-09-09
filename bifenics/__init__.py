@@ -1,4 +1,4 @@
-from bifenics.continuation_methods import ParameterContinuation
+from bifenics.continuation_methods import ParameterContinuation, ArclengthContinuation
 from bifenics.nonlinear_problem import BifenicsProblem
 
 from bifenics.utilities import evaluate_function

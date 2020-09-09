@@ -1,4 +1,4 @@
-from bifenics import BifenicsProblem, ParameterContinuation
+from bifenics import BifenicsProblem, ParameterContinuation, ArclengthContinuation
 from dolfin import IntervalMesh, Constant, exp, inner, grad, dx, DirichletBC,\
     FunctionSpace, parameters
 import numpy as np
@@ -55,12 +55,12 @@ if __name__ == '__main__':
     XDMF_options = {"flush_output": True,
                     "functions_share_mesh": True,
                     "rewrite_function_mesh": False}
-    analysis = ParameterContinuation(
+    analysis = ArclengthContinuation(
         bratu,
         "lambda",
         start=0,
         end=3.6,
-        dt=.01,
+        ds=.01,
         saving_file_parameters=XDMF_options)
     analysis.run()
     comm = MPI.COMM_WORLD

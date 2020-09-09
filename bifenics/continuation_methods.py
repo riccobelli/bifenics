@@ -1,7 +1,11 @@
 # Module collecting several class, each being a general continuation method
 from dolfin import (
     Function,
+    FiniteElement,
+    FunctionSpace,
+    MixedElement,
     derivative,
+    assign,
     TestFunction,
     TrialFunction,
     NonlinearVariationalProblem,
@@ -119,6 +123,7 @@ class ParameterContinuation(object):
                             log("Max halving reached! Ending simulation", warning=True)
                             goOn = False
             else:
+                raise NotImplementedError
                 while ok == 0:
                     self.problem.modify_initial_guess(u, param)
                     try:
@@ -163,5 +168,72 @@ class ParameterContinuation(object):
 
 
 class ArclengthContinuation(object):
-    def __init__(self):
-        raise NotImplementedError
+    # Legenda:
+    # z: funzione incognita del problema originale
+    # param: parametro di controllo del problema di biforcazione
+    # ac_state: funzione contente z e param, cioè [z, param]
+    def __init__(self,
+                 problem,
+                 param_name,
+                 start=0,
+                 end=0,
+                 ds=0,
+                 min_ds=1e-6,
+                 save_output=True,
+                 saving_file_parameters={},
+                 output_folder="output",
+                 remove_old_output_folder=True):
+
+        comm = MPI.COMM_WORLD
+        rank = comm.Get_rank()
+
+        if rank == 0 and remove_old_output_folder is True:
+            os.system("rm -r " + output_folder)
+        if rank == 0 and not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        self.problem = problem
+        self._param_name = param_name
+        self._param_start = start
+        self._param_end = end
+        self._ds = ds
+        self._min_ds = min_ds
+        self._solver_params = {}
+        self._save_file = XDMFFile(output_folder + "/results.xdmf")
+        self._save_file.parameters.update(saving_file_parameters)
+        self._save_output = save_output
+
+        # Update adding user defined solver Parameters
+        self._solver_params.update(problem.solver_parameters())
+
+        # Disable error on non nonconvergence
+        if 'nonlinear_solver' not in self._solver_params:
+            self._solver_params['nonlinear_solver'] = 'snes'
+            self._solver_params['snes_solver'] = {}
+        solver_type = self._solver_params['nonlinear_solver']
+        if solver_type == "snes":
+            self._solver_params[solver_type + '_solver']['error_on_nonconvergence'] = False
+
+    def create_ac_spaces(self):
+        self.V_space = self.problem.function_space(self.mesh)
+        V_elem = self.V_space.ufl_element()
+        param_elem = FiniteElement("R", self.mesh.ufl_cell(), 0)
+        self.param_space = FunctionSpace(self.mesh, param_elem)
+        ac_element = MixedElement([V_elem, param_elem])
+        self.ac_space = FunctionSpace(self.mesh, ac_element)
+
+    def load_arclength_function(self, z, param, z_param):
+        assign(z_param.sub(0), z)
+        r = Function(self.parameter_space)
+        r.assign(param)
+        assign(z_param.split()[1], r)
+
+    def run(self):
+        # Setting mesh and defining functional spaces
+        self.mesh = self.problem.mesh()
+        self.create_ac_spaces()
+        ac_state = Function(self.ac_space)
+        ac_state_prev = Function(self.ac_space)
+
+        # Set initial guess
+        u.assign(self.problem.initial_guess(V))
+        u0.assign(self.problem.initial_guess(V))
