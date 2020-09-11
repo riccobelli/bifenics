@@ -66,5 +66,5 @@ if __name__ == '__main__':
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     if rank == 0:
-        plt.plot(bratu.lmbdaplot, bratu.uplot)
+        plt.plot(bratu.lmbdaplot, bratu.uplot, '-o')
         plt.show()

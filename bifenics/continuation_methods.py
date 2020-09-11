@@ -190,7 +190,7 @@ class ArclengthContinuation(object):
                  saving_file_parameters={},
                  output_folder="output",
                  remove_old_output_folder=True,
-                 max_steps=100):
+                 max_steps=300):
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -242,6 +242,11 @@ class ArclengthContinuation(object):
         assign(ac_state, predictor)
         assign(ac_state_prev, ac_state_bu)
 
+    def save_function(self, function, param, count, xdmf_file):
+        # We save the function into the output file
+        xdmf_file.write(function, count)
+        xdmf_file.write(param, count)
+
     def run(self):
         # Setting mesh and defining functional spaces
         mesh = self.problem.mesh()
@@ -255,6 +260,8 @@ class ArclengthContinuation(object):
         # Creating functions in arclength spaces
         ac_state = Function(ac_space)
         ac_state_prev = Function(ac_space)
+        ac_state_copy = Function(ac_space)
+        ac_state_prev_copy = Function(ac_space)
 
         # Setting parameters values
         param = self.problem.parameters()[self._param_name]
@@ -264,6 +271,8 @@ class ArclengthContinuation(object):
         initial_guess = self.problem.initial_guess(V_space)
         self.load_arclength_function(initial_guess, param, ac_state)
         self.load_arclength_function(initial_guess, param, ac_state_prev)
+        ac_state_copy.assign(ac_state)
+        ac_state_prev_copy.assign(ac_state_prev)
 
         # Boundary conditions
         bcs = self.problem.boundary_conditions(mesh, ac_space.sub(0))
@@ -280,16 +289,40 @@ class ArclengthContinuation(object):
         J = derivative(residual, ac_state, TrialFunction(ac_space))
         ac_problem = NonlinearVariationalProblem(residual, ac_state, bcs, J)
         ac_solver = NonlinearVariationalSolver(ac_problem)
+        ac_solver.parameters.update(self._solver_params)
         # Start analysis
         count = 0
-        self.secant_predictor(ac_state_prev, ac_state, self._ds, missing_previous_step=True)
-        while count < self._max_steps:
-            self.secant_predictor(ac_state_prev, ac_state, self._ds)
-            J = derivative(residual, ac_state, TrialFunction(ac_space))
-            ac_problem = NonlinearVariationalProblem(residual, ac_state, bcs, J)
-            ac_solver = NonlinearVariationalSolver(ac_problem)
-            ac_solver.solve()
-            u_copy, param_copy = ac_state.split(deepcopy=True)
-            print(float(param_copy))
-            self.problem.monitor(u_copy, float(param_copy), self._save_file)
-            count += 1
+        n_halving = 0
+        while count < self._max_steps:  # and n_halving < 5:
+            if count == 0:
+                missing_prev = True
+            else:
+                missing_prev = False
+            self.secant_predictor(ac_state_prev, ac_state, self._ds,
+                                  missing_previous_step=missing_prev)
+            status = ac_solver.solve()
+            if status[1] is True:
+                u_copy, param_copy = ac_state.split(deepcopy=True)
+                self.problem.monitor(u_copy, Constant(param_copy), self._save_file)
+                # New solution found, we save it
+
+                log("Nonlinear solver converged", success=True)
+
+                if self._save_output is True:
+                    self.save_function(u_copy, param_copy, count, self._save_file)
+                count += 1
+                u_copy, param_copy = ac_state.split(deepcopy=True)
+                self.problem.monitor(u_copy, Constant(param_copy), self._save_file)
+                ac_state_copy.assign(ac_state)
+                ac_state_prev_copy.assign(ac_state_prev)
+            else:
+                n_halving += 1
+                # The nonlinear solver failed to converge, we halve the step and we start
+                # again the nonlinear solver.
+                log("Nonlinear solver did not converge, halving step", warning=True)
+                self._ds.assign(self._ds / 2)
+                ac_state.assign(ac_state_copy)
+                ac_state_prev.assign(ac_state_prev_copy)
+                if n_halving > 5:
+                    ok = 1
+                    log("Max halving reached! Ending simulation", warning=True)
