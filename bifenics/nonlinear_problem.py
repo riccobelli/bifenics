@@ -1,4 +1,4 @@
-from dolfin import Function
+from dolfin import Function, split, inner, dx
 
 
 class BifenicsProblem(object):
@@ -26,3 +26,15 @@ class BifenicsProblem(object):
 
     def modify_initial_guess(self, u, param):
         pass
+
+    def ac_constraint(self, ac_state, ac_state_prev, ac_testFunction, ds):
+        u, param = split(ac_state)
+        u_prev, param_prev = split(ac_state_prev)
+
+        u_testFunction, param_testFunction = split(ac_testFunction)
+
+        F = (param_testFunction * inner(u - u_prev, u - u_prev) * dx +
+             param_testFunction * inner(param - param_prev, param - param_prev) * dx -
+             param_testFunction * ds**2 * dx)
+
+        return F

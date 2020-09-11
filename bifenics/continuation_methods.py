@@ -11,9 +11,11 @@ from dolfin import (
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
     Expression,
+    split,
     interpolate,
     Constant,
     plot,
+    project,
     XDMFFile)
 from bifenics.log import log
 import os
@@ -200,7 +202,7 @@ class ArclengthContinuation(object):
         self._param_name = param_name
         self._param_start = start
         self._param_end = end
-        self._ds = ds
+        self._ds = Constant(ds)
         self._min_ds = min_ds
         self._solver_params = {}
         self._save_file = XDMFFile(output_folder + "/results.xdmf")
@@ -218,46 +220,62 @@ class ArclengthContinuation(object):
         if solver_type == "snes":
             self._solver_params[solver_type + '_solver']['error_on_nonconvergence'] = False
 
-    def create_ac_spaces(self):
-        self.V_space = self.problem.function_space(self.mesh)
-        V_elem = self.V_space.ufl_element()
-        param_elem = FiniteElement("R", self.mesh.ufl_cell(), 0)
-        self.param_space = FunctionSpace(self.mesh, param_elem)
-        ac_element = MixedElement([V_elem, param_elem])
-        self.ac_space = FunctionSpace(self.mesh, ac_element)
-
     def load_arclength_function(self, func, param, ac_function):
         assign(ac_function.sub(0), func)
         r = Function(self.param_space)
         r.assign(param)
         assign(ac_function.split()[1], r)
 
+    def secant_predictor(self, ac_state_prev, ac_state, ds, missing_previous_step=False, omega=1):
+        if missing_previous_step is True:
+            assign(ac_state_prev, ac_state)
+            self.load_arclength_function(
+                ac_state.split()[0],
+                Constant(ac_state.split()[1] + ds),
+                ac_state)
+            return
+        ac_state_bu = ac_state.copy(deepcopy=True)
+        predictor = project(ac_state + omega * (ac_state - ac_state_prev),
+                            ac_state.function_space())
+        assign(ac_state, predictor)
+        assign(ac_state_prev, ac_state_bu)
+
     def run(self):
         # Setting mesh and defining functional spaces
-        self.mesh = self.problem.mesh()
-        self.create_ac_spaces()
+        mesh = self.problem.mesh()
+        V_space = self.problem.function_space(mesh)
+        V_elem = V_space.ufl_element()
+        param_elem = FiniteElement("R", mesh.ufl_cell(), 0)
+        self.param_space = FunctionSpace(mesh, param_elem)
+        ac_element = MixedElement([V_elem, param_elem])
+        ac_space = FunctionSpace(mesh, ac_element)
 
         # Creating functions in arclength spaces
-        ac_state = Function(self.ac_space)
-        ac_state_prev = Function(self.ac_space)
+        ac_state = Function(ac_space)
+        ac_state_prev = Function(ac_space)
 
         # Setting parameters values
         param = self.problem.parameters()[self._param_name]
         param.assign(self._param_start)
 
         # Loading initial arclength state
-        initial_guess = self.problem.initial_guess(self.V_space)
+        initial_guess = self.problem.initial_guess(V_space)
         self.load_arclength_function(initial_guess, param, ac_state)
         self.load_arclength_function(initial_guess, param, ac_state_prev)
 
-        # DA QUI SI DEVE SISTEMARE
-        bcs = self.problem.boundary_conditions(self.ac_space.sub(0))
+        # Boundary conditions
+        bcs = self.problem.boundary_conditions(ac_space.sub(0))
 
         # Construction of the arclength problem residual and Jacobian starting from the
         # user defined ones.
+        u, lmbda = split(ac_state)
+        u_prev, lmbda_prev = split(ac_state_prev)
 
-        residual = self.problem.residual(u, TestFunction(V), param)
-        J = derivative(residual, u, TrialFunction(V))
+        ac_testFunction = TestFunction(ac_space)
+        u_testFunction, param_testFunction = split(ac_testFunction)
+        residual = (self.problem.residual(u, u_testFunction, param) +
+                    self.problem.ac_constraint(ac_state, ac_state_prev, ac_testFunction, self._ds))
+        J = derivative(residual, ac_state, TrialFunction(ac_space))
 
         # Start analysis
         T = 1.0  # total simulation time
