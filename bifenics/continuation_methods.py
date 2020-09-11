@@ -314,17 +314,20 @@ class ArclengthContinuation(object):
                 # parameter
                 if self._save_output is True:
                     self.save_function(u_copy, param_copy, count, self._save_file)
+                # Ready for the next step! We increment count and we "back up" our solution
                 count += 1
                 u_copy, param_copy = ac_state.split(deepcopy=True)
                 ac_state_copy.assign(ac_state)
                 ac_state_prev_copy.assign(ac_state_prev)
             else:
-                n_halving += 1
                 # The nonlinear solver failed to converge, we halve the step and we start
                 # again the nonlinear solver.
+                n_halving += 1
                 log("Nonlinear solver did not converge, halving step", warning=True)
                 self._ds.assign(self._ds / 2)
+                # We restore the previous state, deleting the increment given by the predictor.
                 ac_state.assign(ac_state_copy)
                 ac_state_prev.assign(ac_state_prev_copy)
-                if n_halving > 5:
+                # If we have already halved the step five times, we give up.
+                if n_halving >= 5:
                     log("Max halving reached! Ending simulation", warning=True)
