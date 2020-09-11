@@ -293,7 +293,7 @@ class ArclengthContinuation(object):
         # Start analysis
         count = 0
         n_halving = 0
-        while count < self._max_steps:  # and n_halving < 5:
+        while count < self._max_steps and n_halving < 5:
             if count == 0:
                 missing_prev = True
             else:
@@ -302,17 +302,20 @@ class ArclengthContinuation(object):
                                   missing_previous_step=missing_prev)
             status = ac_solver.solve()
             if status[1] is True:
-                u_copy, param_copy = ac_state.split(deepcopy=True)
-                self.problem.monitor(u_copy, Constant(param_copy), self._save_file)
-                # New solution found, we save it
-
+                # The nonlinear solver reached convergence, we need to save the solution
+                # and to prepare for the next step, first we separate the solution to the
+                # original problem and the parameter
                 log("Nonlinear solver converged", success=True)
-
+                u_copy, param_copy = ac_state.split(deepcopy=True)
+                # We call the monitor to execute tasks on the solution
+                self.problem.monitor(u_copy, Constant(param_copy), self._save_file)
+                # If needed, we save the file. At the same time-step (i.e. the value of
+                # "count"), we save both the solution of the original problem and the
+                # parameter
                 if self._save_output is True:
                     self.save_function(u_copy, param_copy, count, self._save_file)
                 count += 1
                 u_copy, param_copy = ac_state.split(deepcopy=True)
-                self.problem.monitor(u_copy, Constant(param_copy), self._save_file)
                 ac_state_copy.assign(ac_state)
                 ac_state_prev_copy.assign(ac_state_prev)
             else:
@@ -324,5 +327,4 @@ class ArclengthContinuation(object):
                 ac_state.assign(ac_state_copy)
                 ac_state_prev.assign(ac_state_prev_copy)
                 if n_halving > 5:
-                    ok = 1
                     log("Max halving reached! Ending simulation", warning=True)
