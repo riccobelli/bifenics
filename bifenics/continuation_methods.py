@@ -10,10 +10,15 @@ from dolfin import (
     TrialFunction,
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
+    Expression,
+    interpolate,
+    Constant,
+    plot,
     XDMFFile)
 from bifenics.log import log
 import os
 from mpi4py import MPI
+import matplotlib.pyplot as plt
 
 
 class ParameterContinuation(object):
@@ -221,19 +226,39 @@ class ArclengthContinuation(object):
         ac_element = MixedElement([V_elem, param_elem])
         self.ac_space = FunctionSpace(self.mesh, ac_element)
 
-    def load_arclength_function(self, z, param, z_param):
-        assign(z_param.sub(0), z)
-        r = Function(self.parameter_space)
+    def load_arclength_function(self, func, param, ac_function):
+        assign(ac_function.sub(0), func)
+        r = Function(self.param_space)
         r.assign(param)
-        assign(z_param.split()[1], r)
+        assign(ac_function.split()[1], r)
 
     def run(self):
         # Setting mesh and defining functional spaces
         self.mesh = self.problem.mesh()
         self.create_ac_spaces()
+
+        # Creating functions in arclength spaces
         ac_state = Function(self.ac_space)
         ac_state_prev = Function(self.ac_space)
 
-        # Set initial guess
-        u.assign(self.problem.initial_guess(V))
-        u0.assign(self.problem.initial_guess(V))
+        # Setting parameters values
+        param = self.problem.parameters()[self._param_name]
+        param.assign(self._param_start)
+
+        # Loading initial arclength state
+        initial_guess = self.problem.initial_guess(self.V_space)
+        self.load_arclength_function(initial_guess, param, ac_state)
+        self.load_arclength_function(initial_guess, param, ac_state_prev)
+
+        # DA QUI SI DEVE SISTEMARE
+        bcs = self.problem.boundary_conditions(self.ac_space.sub(0))
+
+        # Construction of the arclength problem residual and Jacobian starting from the
+        # user defined ones.
+
+        residual = self.problem.residual(u, TestFunction(V), param)
+        J = derivative(residual, u, TrialFunction(V))
+
+        # Start analysis
+        T = 1.0  # total simulation time
+        t = 0.0
