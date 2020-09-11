@@ -189,7 +189,8 @@ class ArclengthContinuation(object):
                  save_output=True,
                  saving_file_parameters={},
                  output_folder="output",
-                 remove_old_output_folder=True):
+                 remove_old_output_folder=True,
+                 max_steps=100):
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
@@ -208,6 +209,7 @@ class ArclengthContinuation(object):
         self._save_file = XDMFFile(output_folder + "/results.xdmf")
         self._save_file.parameters.update(saving_file_parameters)
         self._save_output = save_output
+        self._max_steps = max_steps
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
@@ -264,19 +266,30 @@ class ArclengthContinuation(object):
         self.load_arclength_function(initial_guess, param, ac_state_prev)
 
         # Boundary conditions
-        bcs = self.problem.boundary_conditions(ac_space.sub(0))
+        bcs = self.problem.boundary_conditions(mesh, ac_space.sub(0))
 
         # Construction of the arclength problem residual and Jacobian starting from the
         # user defined ones.
-        u, lmbda = split(ac_state)
-        u_prev, lmbda_prev = split(ac_state_prev)
+        u, param = split(ac_state)
+        u_prev, param_prev = split(ac_state_prev)
 
         ac_testFunction = TestFunction(ac_space)
         u_testFunction, param_testFunction = split(ac_testFunction)
         residual = (self.problem.residual(u, u_testFunction, param) +
                     self.problem.ac_constraint(ac_state, ac_state_prev, ac_testFunction, self._ds))
         J = derivative(residual, ac_state, TrialFunction(ac_space))
-
+        ac_problem = NonlinearVariationalProblem(residual, ac_state, bcs, J)
+        ac_solver = NonlinearVariationalSolver(ac_problem)
         # Start analysis
-        T = 1.0  # total simulation time
-        t = 0.0
+        count = 0
+        self.secant_predictor(ac_state_prev, ac_state, self._ds, missing_previous_step=True)
+        while count < self._max_steps:
+            self.secant_predictor(ac_state_prev, ac_state, self._ds)
+            J = derivative(residual, ac_state, TrialFunction(ac_space))
+            ac_problem = NonlinearVariationalProblem(residual, ac_state, bcs, J)
+            ac_solver = NonlinearVariationalSolver(ac_problem)
+            ac_solver.solve()
+            u_copy, param_copy = ac_state.split(deepcopy=True)
+            print(float(param_copy))
+            self.problem.monitor(u_copy, float(param_copy), self._save_file)
+            count += 1

@@ -60,7 +60,7 @@ if __name__ == '__main__':
         "lambda",
         start=0,
         end=3.6,
-        ds=.01,
+        ds=.1,
         saving_file_parameters=XDMF_options)
     analysis.run()
     comm = MPI.COMM_WORLD
