@@ -9,7 +9,8 @@
 from bifenics import BifenicsProblem, ParameterContinuation
 from dolfin import RectangleMesh, Point, VectorFunctionSpace, grad, Identity,\
     inner, derivative, dx, tr, Constant, ln, det, SubDomain, near,\
-    DirichletBC, MeshFunction
+    DirichletBC, MeshFunction, sin, cos, DOLFIN_PI
+import numpy as np
 
 
 class RayleighTaylor(BifenicsProblem):
@@ -33,7 +34,7 @@ class RayleighTaylor(BifenicsProblem):
             TOL = 1e-4
             return on_boundary and near(x[0], self.L, TOL)
 
-    def __init__(self, L, H, mu, K, nx=10, ny=10):
+    def __init__(self, L, H, mu, K, nx=30, ny=30):
         self.L = L
         self.H = H
         self.nx = nx
@@ -44,12 +45,23 @@ class RayleighTaylor(BifenicsProblem):
         self.K = Constant(K)
 
     def mesh(self):
-        return RectangleMesh(
+        mesh = RectangleMesh(
             Point((0, 0)),
             Point((self.L, self.H)),
             self.nx,
             self.ny,
             "left/right")
+        x = mesh.coordinates()[:, 0]
+        y = mesh.coordinates()[:, 1]
+
+        m = 1
+        for elem in range(len(x)):
+            if y[elem] > 0.98 * self.H:
+                x[elem] = x[elem] + 0.001 * sin(2 * m * DOLFIN_PI / self.L * x[elem])
+                y[elem] = y[elem] + 0.001 * cos(2 * m * DOLFIN_PI / self.L * x[elem])
+        xy_coor = np.array([x, y]).transpose()
+        mesh.coordinates()[:] = xy_coor
+        return mesh
 
     def function_space(self, mesh):
         return VectorFunctionSpace(mesh, "CG", 1)
@@ -92,7 +104,7 @@ class RayleighTaylor(BifenicsProblem):
                 'linear_solver': 'mumps',
                 'absolute_tolerance': 1e-10,
                 'relative_tolerance': 1e-10,
-                'maximum_iterations': 10,
+                'maximum_iterations': 30,
             }
         }
         return parameters
@@ -102,12 +114,12 @@ if __name__ == '__main__':
     XDMF_options = {"flush_output": True,
                     "functions_share_mesh": True,
                     "rewrite_function_mesh": False}
-    rt = RayleighTaylor(1, 1, 1, 100, nx=30, ny=30)
+    rt = RayleighTaylor(2, 1, 1, 200, nx=60, ny=30)
     analysis = ParameterContinuation(
         rt,
         "gamma",
         start=0,
-        end=30,
-        dt=.05,
+        end=15,
+        dt=.001,
         saving_file_parameters=XDMF_options)
     analysis.run()
