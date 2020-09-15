@@ -190,6 +190,7 @@ class ArclengthContinuation(object):
                  saving_file_parameters={},
                  output_folder="output",
                  remove_old_output_folder=True,
+                 initial_direction=1,
                  max_steps=300):
 
         comm = MPI.COMM_WORLD
@@ -210,6 +211,7 @@ class ArclengthContinuation(object):
         self._save_file.parameters.update(saving_file_parameters)
         self._save_output = save_output
         self._max_steps = max_steps
+        self._initial_direction = initial_direction
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
@@ -233,7 +235,7 @@ class ArclengthContinuation(object):
             assign(ac_state_prev, ac_state)
             self.load_arclength_function(
                 ac_state.split()[0],
-                Constant(ac_state.split()[1] + ds),
+                Constant(ac_state.split()[1] + self._initial_direction * ds),
                 ac_state)
             return
         ac_state_bu = ac_state.copy(deepcopy=True)
