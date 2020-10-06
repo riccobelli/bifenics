@@ -311,7 +311,6 @@ class ArclengthContinuation(object):
             log("Success", success=True)
         ac_state_copy.assign(ac_state)
         ac_state_prev_copy.assign(ac_state_prev)
-
         # Boundary conditions
         bcs = self.problem.boundary_conditions(mesh, ac_space.sub(0))
 
