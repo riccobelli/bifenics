@@ -20,7 +20,7 @@ from dolfin import (
 from bifenics.log import log
 import os
 from mpi4py import MPI
-import matplotlib.pyplot as plt
+import copy
 
 
 class ParameterContinuation(object):
@@ -271,8 +271,8 @@ class ArclengthContinuation(object):
         param = self.problem.parameters()[self._param_name]
         param.assign(self._param_start)
 
-        if self._first_step_with_parameter_continuation is False:
-            # Loading initial arclength state
+        # Loading initial arclength state
+        if self._first_step_with_parameter_continuation is True:
             initial_guess = self.problem.initial_guess(V_space)
             self.load_arclength_function(initial_guess, param, ac_state)
             self.load_arclength_function(initial_guess, param, ac_state_prev)
@@ -290,7 +290,7 @@ class ArclengthContinuation(object):
             J = derivative(residual, u, TrialFunction(V_space))
             dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
             solver = NonlinearVariationalSolver(dolfin_problem)
-            initial_solver_param = self._solver_params
+            initial_solver_param = copy.deepcopy(self._solver_params)
             solver_type = initial_solver_param['nonlinear_solver']
             initial_solver_param[solver_type + '_solver']['error_on_nonconvergence'] = True
             solver.parameters.update(initial_solver_param)
@@ -354,6 +354,8 @@ class ArclengthContinuation(object):
                 u_copy, param_copy = ac_state.split(deepcopy=True)
                 ac_state_copy.assign(ac_state)
                 ac_state_prev_copy.assign(ac_state_prev)
+                if missing_prev is True:
+                    missing_prev = False
             else:
                 # The nonlinear solver failed to converge, we halve the step and we start
                 # again the nonlinear solver.
