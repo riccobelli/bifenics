@@ -276,6 +276,7 @@ class ArclengthContinuation(object):
             initial_guess = self.problem.initial_guess(V_space)
             self.load_arclength_function(initial_guess, param, ac_state)
             self.load_arclength_function(initial_guess, param, ac_state_prev)
+            missing_prev = True
 
         else:
             log("Computing first step with a parameter continuation")
@@ -309,6 +310,7 @@ class ArclengthContinuation(object):
             # We succeded! (We hope, otherwise our adventure ends here). We save the solution
             self.load_arclength_function(u, param, ac_state)
             log("Success", success=True)
+            missing_prev = False
         ac_state_copy.assign(ac_state)
         ac_state_prev_copy.assign(ac_state_prev)
         # Boundary conditions
@@ -331,10 +333,6 @@ class ArclengthContinuation(object):
         count = 0
         n_halving = 0
         while count < self._max_steps and n_halving < 5:
-            if count == 0:
-                missing_prev = True
-            else:
-                missing_prev = False
             self.secant_predictor(ac_state_prev, ac_state, self._ds,
                                   missing_previous_step=missing_prev)
             status = ac_solver.solve()
