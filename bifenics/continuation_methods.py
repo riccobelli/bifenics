@@ -20,7 +20,7 @@ from dolfin import (
 from bifenics.log import log
 import os
 from mpi4py import MPI
-import matplotlib.pyplot as plt
+import copy
 
 
 class ParameterContinuation(object):
@@ -191,6 +191,7 @@ class ArclengthContinuation(object):
                  output_folder="output",
                  remove_old_output_folder=True,
                  initial_direction=1,
+                 first_step_with_parameter_continuation=False,
                  max_steps=300):
 
         comm = MPI.COMM_WORLD
@@ -212,6 +213,7 @@ class ArclengthContinuation(object):
         self._save_output = save_output
         self._max_steps = max_steps
         self._initial_direction = initial_direction
+        self._first_step_with_parameter_continuation = first_step_with_parameter_continuation
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
@@ -270,12 +272,47 @@ class ArclengthContinuation(object):
         param.assign(self._param_start)
 
         # Loading initial arclength state
-        initial_guess = self.problem.initial_guess(V_space)
-        self.load_arclength_function(initial_guess, param, ac_state)
-        self.load_arclength_function(initial_guess, param, ac_state_prev)
+        if self._first_step_with_parameter_continuation is True:
+            initial_guess = self.problem.initial_guess(V_space)
+            self.load_arclength_function(initial_guess, param, ac_state)
+            self.load_arclength_function(initial_guess, param, ac_state_prev)
+            missing_prev = True
+
+        else:
+            log("Computing first step with a parameter continuation")
+            u = Function(V_space)
+
+            # Set initial guess
+            u.assign(self.problem.initial_guess(V_space))
+
+            bcs = self.problem.boundary_conditions(mesh, V_space)
+            residual = self.problem.residual(u, TestFunction(V_space), param)
+            J = derivative(residual, u, TrialFunction(V_space))
+            dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
+            solver = NonlinearVariationalSolver(dolfin_problem)
+            initial_solver_param = copy.deepcopy(self._solver_params)
+            solver_type = initial_solver_param['nonlinear_solver']
+            initial_solver_param[solver_type + '_solver']['error_on_nonconvergence'] = True
+            solver.parameters.update(initial_solver_param)
+            solver.solve()
+            log("Success", success=True)
+            # First solution found, we save it on ac_state_prev
+            self.load_arclength_function(u, param, ac_state_prev)
+
+            # We look for the next one
+            log("Computing second step with a parameter continuation")
+            param.assign(param + self._ds)
+            dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
+            solver = NonlinearVariationalSolver(dolfin_problem)
+            solver.parameters.update(initial_solver_param)
+            solver.solve()
+
+            # We succeded! (We hope, otherwise our adventure ends here). We save the solution
+            self.load_arclength_function(u, param, ac_state)
+            log("Success", success=True)
+            missing_prev = False
         ac_state_copy.assign(ac_state)
         ac_state_prev_copy.assign(ac_state_prev)
-
         # Boundary conditions
         bcs = self.problem.boundary_conditions(mesh, ac_space.sub(0))
 
@@ -296,10 +333,6 @@ class ArclengthContinuation(object):
         count = 0
         n_halving = 0
         while count < self._max_steps and n_halving < 5:
-            if count == 0:
-                missing_prev = True
-            else:
-                missing_prev = False
             self.secant_predictor(ac_state_prev, ac_state, self._ds,
                                   missing_previous_step=missing_prev)
             status = ac_solver.solve()
@@ -321,6 +354,8 @@ class ArclengthContinuation(object):
                 u_copy, param_copy = ac_state.split(deepcopy=True)
                 ac_state_copy.assign(ac_state)
                 ac_state_prev_copy.assign(ac_state_prev)
+                if missing_prev is True:
+                    missing_prev = False
             else:
                 # The nonlinear solver failed to converge, we halve the step and we start
                 # again the nonlinear solver.
