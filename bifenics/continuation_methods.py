@@ -144,7 +144,7 @@ class ParameterContinuation(object):
                             self.save_function(u, param, self._save_file)
                         u0.assign(u)
                         ok = 1
-                    except BaseException:
+                    except RuntimeError:
                         n_halving += 1
                         # The nonlinear solver failed to converge, we halve the step and we
                         # start again the nonlinear solver.
