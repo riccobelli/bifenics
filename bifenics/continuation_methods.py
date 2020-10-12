@@ -130,7 +130,6 @@ class ParameterContinuation(object):
                             log("Max halving reached! Ending simulation", warning=True)
                             goOn = False
             else:
-                raise NotImplementedError
                 while ok == 0:
                     self.problem.modify_initial_guess(u, param)
                     try:
@@ -272,7 +271,7 @@ class ArclengthContinuation(object):
         param.assign(self._param_start)
 
         # Loading initial arclength state
-        if self._first_step_with_parameter_continuation is True:
+        if self._first_step_with_parameter_continuation is False:
             initial_guess = self.problem.initial_guess(V_space)
             self.load_arclength_function(initial_guess, param, ac_state)
             self.load_arclength_function(initial_guess, param, ac_state_prev)
@@ -301,7 +300,7 @@ class ArclengthContinuation(object):
 
             # We look for the next one
             log("Computing second step with a parameter continuation")
-            param.assign(param + self._ds)
+            param.assign(param + self._initial_direction * self._ds)
             dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
             solver = NonlinearVariationalSolver(dolfin_problem)
             solver.parameters.update(initial_solver_param)
@@ -332,7 +331,7 @@ class ArclengthContinuation(object):
         # Start analysis
         count = 0
         n_halving = 0
-        while count < self._max_steps and n_halving < 5:
+        while count < self._max_steps and n_halving < 10:
             self.secant_predictor(ac_state_prev, ac_state, self._ds,
                                   missing_previous_step=missing_prev)
             status = ac_solver.solve()
