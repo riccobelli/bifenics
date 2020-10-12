@@ -332,8 +332,12 @@ class ArclengthContinuation(object):
         count = 0
         n_halving = 0
         while count < self._max_steps and n_halving < 10:
+            log("Computing the predictor (secant method)")
             self.secant_predictor(ac_state_prev, ac_state, self._ds,
                                   missing_previous_step=missing_prev)
+
+            log("Success, starting correction")
+            log(f"Step {count}: {self._param_name} = {float(ac_state.split(deepcopy=True)[1])}")
             status = ac_solver.solve()
             if status[1] is True:
                 # The nonlinear solver reached convergence, we need to save the solution
