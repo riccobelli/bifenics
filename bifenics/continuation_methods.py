@@ -40,7 +40,7 @@ class ParameterContinuation(object):
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
-        if rank == 0 and remove_old_output_folder is True:
+        if rank == 0 and remove_old_output_folder is True and os.path.exists(output_folder):
             os.system("rm -r " + output_folder)
         if rank == 0 and not os.path.exists(output_folder):
             os.makedirs(output_folder)
@@ -196,7 +196,7 @@ class ArclengthContinuation(object):
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
-        if rank == 0 and remove_old_output_folder is True:
+        if rank == 0 and remove_old_output_folder is True and os.path.exists(output_folder):
             os.system("rm -r " + output_folder)
         if rank == 0 and not os.path.exists(output_folder):
             os.makedirs(output_folder)
