@@ -129,14 +129,15 @@ class ArclengthContinuation(object):
         ac_state_prev_copy = Function(ac_space)
 
         # Setting parameters values
-        param = self.problem.parameters()[self._param_name]
-        param.assign(self._param_start)
+        self.parameters = self.problem.parameters()
+        self.parameters[self._param_name].assign(self._param_start)
 
         # Loading initial arclength state
         if self._first_step_with_parameter_continuation is False:
             initial_guess = self.problem.initial_guess(V_space)
-            self.load_arclength_function(initial_guess, param, ac_state)
-            self.load_arclength_function(initial_guess, param, ac_state_prev)
+            actual_param = self.parameters[self._param_name]
+            self.load_arclength_function(initial_guess, actual_param, ac_state)
+            self.load_arclength_function(initial_guess, actual_param, ac_state_prev)
             missing_prev = True
 
         else:
@@ -147,7 +148,7 @@ class ArclengthContinuation(object):
             u.assign(self.problem.initial_guess(V_space))
 
             bcs = self.problem.boundary_conditions(mesh, V_space)
-            residual = self.problem.residual(u, TestFunction(V_space), param)
+            residual = self.problem.residual(u, TestFunction(V_space), self.parameters)
             J = derivative(residual, u, TrialFunction(V_space))
             dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
             solver = NonlinearVariationalSolver(dolfin_problem)
@@ -160,11 +161,13 @@ class ArclengthContinuation(object):
             solver.solve()
             log("Success", success=True)
             # First solution found, we save it on ac_state_prev
-            self.load_arclength_function(u, param, ac_state_prev)
+            actual_param = self.parameters[self._param_name]
+            self.load_arclength_function(u, actual_param, ac_state_prev)
 
             # We look for the next one
             log("Computing second step with a parameter continuation")
-            param.assign(param + self._initial_direction * self._ds)
+            new_param_value = actual_param + self._initial_direction * self._ds
+            self.parameters[self._param_name].assign(new_param_value)
             dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
             solver = NonlinearVariationalSolver(dolfin_problem)
             solver.parameters.update(initial_solver_param)
@@ -172,7 +175,8 @@ class ArclengthContinuation(object):
 
             # We succeded! (We hope, otherwise our adventure ends here). We save
             # the solution
-            self.load_arclength_function(u, param, ac_state)
+            actual_param = self.parameters[self._param_name]
+            self.load_arclength_function(u, actual_param, ac_state)
             log("Success", success=True)
             missing_prev = False
         ac_state_copy.assign(ac_state)
@@ -180,10 +184,11 @@ class ArclengthContinuation(object):
         # Boundary conditions
         bcs = self.problem.boundary_conditions(mesh, ac_space.sub(0))
 
+        # SIAMO ARRIVATI QUI! param -> param_ac, param_prev -> param_prev_ac
         # Construction of the arclength problem residual and Jacobian starting from the
         # user defined ones.
-        u, param = split(ac_state)
-        u_prev, param_prev = split(ac_state_prev)
+        u, param_ac = split(ac_state)
+        u_prev, param_prev_ac = split(ac_state_prev)
 
         ac_testFunction = TestFunction(ac_space)
         u_testFunction, param_testFunction = split(ac_testFunction)
