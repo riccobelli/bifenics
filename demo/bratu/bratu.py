@@ -1,4 +1,4 @@
-from bifenics import BifenicsProblem, ParameterContinuation, ArclengthContinuation
+from bifenics import BifenicsProblem, ArclengthContinuation
 from dolfin import (
     IntervalMesh,
     Constant,
@@ -53,9 +53,6 @@ class Bratu(BifenicsProblem):
         return DirichletBC(V, Constant(0), "on_boundary")
 
     def ac_monitor(self, u, lmbda, parameters, output_file):
-        # u_linf = norm(u.vector(), "linf")
-        # self.uplot = np.append(self.uplot, u_linf)
-
         self.uplot = np.append(self.uplot, u(0.5))
         self.lmbdaplot = np.append(self.lmbdaplot, float(lmbda))
 
