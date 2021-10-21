@@ -10,13 +10,11 @@ from dolfin import (
     TrialFunction,
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
-    Expression,
     split,
-    interpolate,
     Constant,
-    plot,
     project,
-    XDMFFile)
+    XDMFFile,
+)
 from bifenics.log import log
 import os
 from mpi4py import MPI
@@ -24,23 +22,28 @@ import copy
 
 
 class ParameterContinuation(object):
-
-    def __init__(self,
-                 problem,
-                 param_name,
-                 start=0,
-                 end=0,
-                 dt=0,
-                 min_dt=1e-6,
-                 save_output=True,
-                 saving_file_parameters={},
-                 output_folder="output",
-                 remove_old_output_folder=True):
+    def __init__(
+        self,
+        problem,
+        param_name,
+        start=0,
+        end=0,
+        dt=0,
+        min_dt=1e-6,
+        save_output=True,
+        saving_file_parameters={},
+        output_folder="output",
+        remove_old_output_folder=True,
+    ):
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
-        if rank == 0 and remove_old_output_folder is True and os.path.exists(output_folder):
+        if (
+            rank == 0
+            and remove_old_output_folder is True
+            and os.path.exists(output_folder)
+        ):
             os.system("rm -r " + output_folder)
         if rank == 0 and not os.path.exists(output_folder):
             os.makedirs(output_folder)
@@ -59,12 +62,14 @@ class ParameterContinuation(object):
         self._solver_params.update(problem.solver_parameters())
 
         # Disable error on non nonconvergence
-        if 'nonlinear_solver' not in self._solver_params:
-            self._solver_params['nonlinear_solver'] = 'snes'
-            self._solver_params['snes_solver'] = {}
-        solver_type = self._solver_params['nonlinear_solver']
+        if "nonlinear_solver" not in self._solver_params:
+            self._solver_params["nonlinear_solver"] = "snes"
+            self._solver_params["snes_solver"] = {}
+        solver_type = self._solver_params["nonlinear_solver"]
         if solver_type == "snes":
-            self._solver_params[solver_type + '_solver']['error_on_nonconvergence'] = False
+            self._solver_params[solver_type + "_solver"][
+                "error_on_nonconvergence"
+            ] = False
 
     def run(self):
         # Setting mesh and defining functional spaces
@@ -96,12 +101,19 @@ class ParameterContinuation(object):
             round(t, 8)
             param.assign(self._param_start + (self._param_end - self._param_start) * t)
 
-            log("Percentage completed: " + str(round(t * 100, 10)) + "%" +
-                " " + self._param_name + ": " + str(round(float(param), 10)))
+            log(
+                "Percentage completed: "
+                + str(round(t * 100, 10))
+                + "%"
+                + " "
+                + self._param_name
+                + ": "
+                + str(round(float(param), 10))
+            )
 
             ok = 0
             n_halving = 0
-            if self._solver_params['nonlinear_solver'] == 'snes':
+            if self._solver_params["nonlinear_solver"] == "snes":
                 while ok == 0:
                     self.problem.modify_initial_guess(u, param)
                     status = self.pc_nonlinear_solver(residual, u, bcs, J)
@@ -118,12 +130,18 @@ class ParameterContinuation(object):
                         ok = 1
                     else:
                         n_halving += 1
-                        # The nonlinear solver failed to converge, we halve the step and we start
-                        # again the nonlinear solver.
-                        log("Nonlinear solver did not converge, halving step", warning=True)
-                        self._dt = self._dt / 2.
+                        # The nonlinear solver failed to converge, we halve the step and
+                        # we start again the nonlinear solver.
+                        log(
+                            "Nonlinear solver did not converge, halving step",
+                            warning=True,
+                        )
+                        self._dt = self._dt / 2.0
                         t += -self._dt
-                        param.assign(self._param_start + (self._param_end - self._param_start) * t)
+                        param.assign(
+                            self._param_start
+                            + (self._param_end - self._param_start) * t
+                        )
                         u.assign(u0)
                         if n_halving > 5:
                             ok = 1
@@ -145,13 +163,18 @@ class ParameterContinuation(object):
                         ok = 1
                     except RuntimeError:
                         n_halving += 1
-                        # The nonlinear solver failed to converge, we halve the step and we
-                        # start again the nonlinear solver.
-                        log("Nonlinear solver did not converge, halving step", warning=True)
-                        self._dt = self._dt / 2.
+                        # The nonlinear solver failed to converge, we halve the step and
+                        # we start again the nonlinear solver.
+                        log(
+                            "Nonlinear solver did not converge, halving step",
+                            warning=True,
+                        )
+                        self._dt = self._dt / 2.0
                         t += -self._dt
-                        param.assign(self._param_start +
-                                     (self._param_end - self._param_start) * t)
+                        param.assign(
+                            self._param_start
+                            + (self._param_end - self._param_start) * t
+                        )
                         u.assign(u0)
                         if n_halving > 5:
                             ok = 1
@@ -165,7 +188,8 @@ class ParameterContinuation(object):
         return solver.solve()
 
     def save_function(self, function, param, xdmf_file):
-        # Convert param (which is a Dolfin Constant) to a float, then we take its absolute value
+        # Convert param (which is a Dolfin Constant) to a float, then we take its
+        # absolute value
         t = float(param)
         t = round(abs(t), 10)
 
@@ -178,25 +202,31 @@ class ArclengthContinuation(object):
     # z: funzione incognita del problema originale
     # param: parametro di controllo del problema di biforcazione
     # ac_state: funzione contente z e param, cioè [z, param]
-    def __init__(self,
-                 problem,
-                 param_name,
-                 start=0,
-                 end=0,
-                 ds=0,
-                 min_ds=1e-6,
-                 save_output=True,
-                 saving_file_parameters={},
-                 output_folder="output",
-                 remove_old_output_folder=True,
-                 initial_direction=1,
-                 first_step_with_parameter_continuation=False,
-                 max_steps=300):
+    def __init__(
+        self,
+        problem,
+        param_name,
+        start=0,
+        end=0,
+        ds=0,
+        min_ds=1e-6,
+        save_output=True,
+        saving_file_parameters={},
+        output_folder="output",
+        remove_old_output_folder=True,
+        initial_direction=1,
+        first_step_with_parameter_continuation=False,
+        max_steps=300,
+    ):
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
 
-        if rank == 0 and remove_old_output_folder is True and os.path.exists(output_folder):
+        if (
+            rank == 0
+            and remove_old_output_folder is True
+            and os.path.exists(output_folder)
+        ):
             os.system("rm -r " + output_folder)
         if rank == 0 and not os.path.exists(output_folder):
             os.makedirs(output_folder)
@@ -212,18 +242,22 @@ class ArclengthContinuation(object):
         self._save_output = save_output
         self._max_steps = max_steps
         self._initial_direction = initial_direction
-        self._first_step_with_parameter_continuation = first_step_with_parameter_continuation
+        self._first_step_with_parameter_continuation = (
+            first_step_with_parameter_continuation
+        )
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
 
         # Disable error on non nonconvergence
-        if 'nonlinear_solver' not in self._solver_params:
-            self._solver_params['nonlinear_solver'] = 'snes'
-            self._solver_params['snes_solver'] = {}
-        solver_type = self._solver_params['nonlinear_solver']
+        if "nonlinear_solver" not in self._solver_params:
+            self._solver_params["nonlinear_solver"] = "snes"
+            self._solver_params["snes_solver"] = {}
+        solver_type = self._solver_params["nonlinear_solver"]
         if solver_type == "snes":
-            self._solver_params[solver_type + '_solver']['error_on_nonconvergence'] = False
+            self._solver_params[solver_type + "_solver"][
+                "error_on_nonconvergence"
+            ] = False
 
     def load_arclength_function(self, func, param, ac_function):
         assign(ac_function.sub(0), func)
@@ -231,17 +265,21 @@ class ArclengthContinuation(object):
         r.assign(param)
         assign(ac_function.split()[1], r)
 
-    def secant_predictor(self, ac_state_prev, ac_state, ds, missing_previous_step=False, omega=1):
+    def secant_predictor(
+        self, ac_state_prev, ac_state, ds, missing_previous_step=False, omega=1
+    ):
         if missing_previous_step is True:
             assign(ac_state_prev, ac_state)
             self.load_arclength_function(
                 ac_state.split()[0],
                 Constant(ac_state.split()[1] + self._initial_direction * ds),
-                ac_state)
+                ac_state,
+            )
             return
         ac_state_bu = ac_state.copy(deepcopy=True)
-        predictor = project(ac_state + omega * (ac_state - ac_state_prev),
-                            ac_state.function_space())
+        predictor = project(
+            ac_state + omega * (ac_state - ac_state_prev), ac_state.function_space()
+        )
         assign(ac_state, predictor)
         assign(ac_state_prev, ac_state_bu)
 
@@ -290,8 +328,10 @@ class ArclengthContinuation(object):
             dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)
             solver = NonlinearVariationalSolver(dolfin_problem)
             initial_solver_param = copy.deepcopy(self._solver_params)
-            solver_type = initial_solver_param['nonlinear_solver']
-            initial_solver_param[solver_type + '_solver']['error_on_nonconvergence'] = True
+            solver_type = initial_solver_param["nonlinear_solver"]
+            initial_solver_param[solver_type + "_solver"][
+                "error_on_nonconvergence"
+            ] = True
             solver.parameters.update(initial_solver_param)
             solver.solve()
             log("Success", success=True)
@@ -306,7 +346,8 @@ class ArclengthContinuation(object):
             solver.parameters.update(initial_solver_param)
             solver.solve()
 
-            # We succeded! (We hope, otherwise our adventure ends here). We save the solution
+            # We succeded! (We hope, otherwise our adventure ends here). We save
+            # the solution
             self.load_arclength_function(u, param, ac_state)
             log("Success", success=True)
             missing_prev = False
@@ -322,8 +363,11 @@ class ArclengthContinuation(object):
 
         ac_testFunction = TestFunction(ac_space)
         u_testFunction, param_testFunction = split(ac_testFunction)
-        residual = (self.problem.residual(u, u_testFunction, param) +
-                    self.problem.ac_constraint(ac_state, ac_state_prev, ac_testFunction, self._ds))
+        residual = self.problem.residual(
+            u, u_testFunction, param
+        ) + self.problem.ac_constraint(
+            ac_state, ac_state_prev, ac_testFunction, self._ds
+        )
         J = derivative(residual, ac_state, TrialFunction(ac_space))
         ac_problem = NonlinearVariationalProblem(residual, ac_state, bcs, J)
         ac_solver = NonlinearVariationalSolver(ac_problem)
@@ -333,16 +377,18 @@ class ArclengthContinuation(object):
         n_halving = 0
         while count < self._max_steps and n_halving < 10:
             log("Computing the predictor (secant method)")
-            self.secant_predictor(ac_state_prev, ac_state, self._ds,
-                                  missing_previous_step=missing_prev)
+            self.secant_predictor(
+                ac_state_prev, ac_state, self._ds, missing_previous_step=missing_prev
+            )
 
             log("Success, starting correction")
-            log(f"Step {count}: {self._param_name} = {float(ac_state.split(deepcopy=True)[1])}")
+            tmp = float(ac_state.split(deepcopy=True)[1])
+            log(f"Step {count}: {self._param_name} = {tmp}")
             status = ac_solver.solve()
             if status[1] is True:
                 # The nonlinear solver reached convergence, we need to save the solution
-                # and to prepare for the next step, first we separate the solution to the
-                # original problem and the parameter
+                # and to prepare for the next step, first we separate the solution to
+                # the original problem and the parameter
                 log("Nonlinear solver converged", success=True)
                 u_copy, param_copy = ac_state.split(deepcopy=True)
                 # We call the monitor to execute tasks on the solution
@@ -352,7 +398,8 @@ class ArclengthContinuation(object):
                 # parameter
                 if self._save_output is True:
                     self.save_function(u_copy, param_copy, count, self._save_file)
-                # Ready for the next step! We increment count and we "back up" our solution
+                # Ready for the next step! We increment count and we "back up" our
+                # solution
                 count += 1
                 u_copy, param_copy = ac_state.split(deepcopy=True)
                 ac_state_copy.assign(ac_state)
@@ -360,12 +407,13 @@ class ArclengthContinuation(object):
                 if missing_prev is True:
                     missing_prev = False
             else:
-                # The nonlinear solver failed to converge, we halve the step and we start
-                # again the nonlinear solver.
+                # The nonlinear solver failed to converge, we halve the step and we
+                # start again the nonlinear solver.
                 n_halving += 1
                 log("Nonlinear solver did not converge, halving step", warning=True)
                 self._ds.assign(self._ds / 2)
-                # We restore the previous state, deleting the increment given by the predictor.
+                # We restore the previous state, deleting the increment given by the
+                # predictor.
                 ac_state.assign(ac_state_copy)
                 ac_state_prev.assign(ac_state_prev_copy)
                 # If we have already halved the step five times, we give up.
