@@ -75,11 +75,11 @@ class ParameterContinuation(object):
         u0.assign(self.problem.initial_guess(V))
 
         # Setting parameters values
-        param = self.problem.parameters()[self._param_name]
-        param.assign(self._param_start)
+        parameters = self.problem.parameters()
+        parameters[self._param_name].assign(self._param_start)
 
         bcs = self.problem.boundary_conditions(mesh, V)
-        residual = self.problem.residual(u, TestFunction(V), param)
+        residual = self.problem.residual(u, TestFunction(V), parameters)
         J = derivative(residual, u, TrialFunction(V))
 
         # Start analysis
@@ -91,7 +91,10 @@ class ParameterContinuation(object):
 
             t += self._dt
             round(t, 8)
-            param.assign(self._param_start + (self._param_end - self._param_start) * t)
+            new_param_value = (
+                self._param_start + (self._param_end - self._param_start) * t
+            )
+            parameters[self._param_name].assign(new_param_value)
 
             log(
                 "Percentage completed: "
@@ -100,24 +103,26 @@ class ParameterContinuation(object):
                 + " "
                 + self._param_name
                 + ": "
-                + str(round(float(param), 10))
+                + str(round(new_param_value, 10))
             )
 
             ok = 0
             n_halving = 0
             if self._solver_params["nonlinear_solver"] == "snes":
                 while ok == 0:
-                    self.problem.modify_initial_guess(u, param)
+                    self.problem.modify_initial_guess(u, parameters)
                     status = self.pc_nonlinear_solver(residual, u, bcs, J)
                     if status[1] is True:
 
-                        self.problem.monitor(u, param, self._save_file)
+                        self.problem.monitor(u, parameters, self._save_file)
 
                         # New solution found, we save it
 
                         log("Nonlinear solver converged", success=True)
                         if self._save_output is True:
-                            self.save_function(u, param, self._save_file)
+                            self.save_function(
+                                u, parameters[self._param_name], self._save_file
+                            )
                         u0.assign(u)
                         ok = 1
                     else:
@@ -130,10 +135,11 @@ class ParameterContinuation(object):
                         )
                         self._dt = self._dt / 2.0
                         t += -self._dt
-                        param.assign(
+                        new_param_value = (
                             self._param_start
                             + (self._param_end - self._param_start) * t
                         )
+                        parameters[self._param_name].assign(new_param_value)
                         u.assign(u0)
                         if n_halving > 5:
                             ok = 1
@@ -141,16 +147,16 @@ class ParameterContinuation(object):
                             goOn = False
             else:
                 while ok == 0:
-                    self.problem.modify_initial_guess(u, param)
+                    self.problem.modify_initial_guess(u, parameters)
                     try:
                         self.pc_nonlinear_solver(residual, u, bcs, J)
-                        self.problem.monitor(u, param, self._save_file)
+                        self.problem.monitor(u, parameters, self._save_file)
 
                         # New solution found, we save it
 
                         log("Nonlinear solver converged", success=True)
                         if self._save_output is True:
-                            self.save_function(u, param, self._save_file)
+                            self.save_function(u, parameters, self._save_file)
                         u0.assign(u)
                         ok = 1
                     except RuntimeError:
@@ -163,10 +169,11 @@ class ParameterContinuation(object):
                         )
                         self._dt = self._dt / 2.0
                         t += -self._dt
-                        param.assign(
+                        new_param_value = (
                             self._param_start
                             + (self._param_end - self._param_start) * t
                         )
+                        parameters[self._param_name].assign(new_param_value)
                         u.assign(u0)
                         if n_halving > 5:
                             ok = 1
