@@ -39,6 +39,7 @@ class ArclengthContinuation(object):
         output_folder="output",
         remove_old_output_folder=True,
         initial_direction=1,
+        max_halving=10,
         first_step_with_parameter_continuation=False,
         max_steps=300,
     ):
@@ -55,6 +56,7 @@ class ArclengthContinuation(object):
         if rank == 0 and not os.path.exists(output_folder):
             os.makedirs(output_folder)
         self.problem = problem
+        self._max_halving = max_halving
         self._param_name = param_name
         self._param_start = start
         self._param_end = end
@@ -184,16 +186,16 @@ class ArclengthContinuation(object):
         # Boundary conditions
         bcs = self.problem.boundary_conditions(mesh, ac_space.sub(0))
 
-        # SIAMO ARRIVATI QUI! param -> param_ac, param_prev -> param_prev_ac
         # Construction of the arclength problem residual and Jacobian starting from the
         # user defined ones.
-        u, param_ac = split(ac_state)
-        u_prev, param_prev_ac = split(ac_state_prev)
+        u, ac_param = split(ac_state)
+        self.parameters[self._param_name] = ac_param
+        u_prev, ac_param_prev = split(ac_state_prev)
 
         ac_testFunction = TestFunction(ac_space)
         u_testFunction, param_testFunction = split(ac_testFunction)
         residual = self.problem.residual(
-            u, u_testFunction, param
+            u, u_testFunction, self.parameters
         ) + self.problem.ac_constraint(
             ac_state, ac_state_prev, ac_testFunction, self._ds
         )
@@ -204,7 +206,7 @@ class ArclengthContinuation(object):
         # Start analysis
         count = 0
         n_halving = 0
-        while count < self._max_steps and n_halving < 10:
+        while count < self._max_steps and n_halving < self._max_halving:
             log("Computing the predictor (secant method)")
             self.secant_predictor(
                 ac_state_prev, ac_state, self._ds, missing_previous_step=missing_prev
@@ -221,7 +223,9 @@ class ArclengthContinuation(object):
                 log("Nonlinear solver converged", success=True)
                 u_copy, param_copy = ac_state.split(deepcopy=True)
                 # We call the monitor to execute tasks on the solution
-                self.problem.monitor(u_copy, Constant(param_copy), self._save_file)
+                self.problem.ac_monitor(
+                    u_copy, param_copy, self.parameters, self._save_file
+                )
                 # If needed, we save the file. At the same time-step (i.e. the value of
                 # "count"), we save both the solution of the original problem and the
                 # parameter
@@ -246,5 +250,5 @@ class ArclengthContinuation(object):
                 ac_state.assign(ac_state_copy)
                 ac_state_prev.assign(ac_state_prev_copy)
                 # If we have already halved the step five times, we give up.
-                if n_halving >= 5:
+                if n_halving >= self._max_halving:
                     log("Max halving reached! Ending simulation", warning=True)
