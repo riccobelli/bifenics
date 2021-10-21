@@ -1,24 +1,16 @@
 # Module collecting several class, each being a general continuation method
 from dolfin import (
     Function,
-    FiniteElement,
-    FunctionSpace,
-    MixedElement,
     derivative,
-    assign,
     TestFunction,
     TrialFunction,
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
-    split,
-    Constant,
-    project,
     XDMFFile,
 )
 from bifenics.log import log
 import os
 from mpi4py import MPI
-import copy
 
 
 class ParameterContinuation(object):
