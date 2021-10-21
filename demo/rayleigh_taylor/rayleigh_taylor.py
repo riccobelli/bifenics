@@ -7,23 +7,40 @@
 # 113(17), 178301.
 
 from bifenics import BifenicsProblem, ParameterContinuation
-from dolfin import RectangleMesh, Point, VectorFunctionSpace, grad, Identity,\
-    inner, derivative, dx, tr, Constant, ln, det, SubDomain, near,\
-    DirichletBC, MeshFunction, sin, cos, DOLFIN_PI
+from dolfin import (
+    RectangleMesh,
+    Point,
+    VectorFunctionSpace,
+    grad,
+    Identity,
+    inner,
+    derivative,
+    dx,
+    tr,
+    Constant,
+    ln,
+    det,
+    SubDomain,
+    near,
+    DirichletBC,
+    MeshFunction,
+    sin,
+    cos,
+    DOLFIN_PI,
+)
 import numpy as np
 
 
 class RayleighTaylor(BifenicsProblem):
-
     class Bottom(SubDomain):
         def inside(self, x, on_boundary):
             TOL = 1e-4
-            return on_boundary and near(x[1], 0., TOL)
+            return on_boundary and near(x[1], 0.0, TOL)
 
     class Left(SubDomain):
         def inside(self, x, on_boundary):
             TOL = 1e-4
-            return on_boundary and near(x[0], 0., TOL)
+            return on_boundary and near(x[0], 0.0, TOL)
 
     class Right(SubDomain):
         def __init__(self, L):
@@ -46,11 +63,8 @@ class RayleighTaylor(BifenicsProblem):
 
     def mesh(self):
         mesh = RectangleMesh(
-            Point((0, 0)),
-            Point((self.L, self.H)),
-            self.nx,
-            self.ny,
-            "left/right")
+            Point((0, 0)), Point((self.L, self.H)), self.nx, self.ny, "left/right"
+        )
         x = mesh.coordinates()[:, 0]
         y = mesh.coordinates()[:, 1]
 
@@ -86,7 +100,8 @@ class RayleighTaylor(BifenicsProblem):
 
         return [bcb, bcl, bcr]
 
-    def residual(self, u, v, gamma):
+    def residual(self, u, v, parameters):
+        gamma = parameters["gamma"]
         F = Identity(2) + grad(u)
         C = F.T * F
         J = det(F)
@@ -99,27 +114,25 @@ class RayleighTaylor(BifenicsProblem):
 
     def solver_parameters(self):
         parameters = {
-            'nonlinear_solver': 'snes',
-            'snes_solver': {
-                'linear_solver': 'mumps',
-                'absolute_tolerance': 1e-10,
-                'relative_tolerance': 1e-10,
-                'maximum_iterations': 30,
-            }
+            "nonlinear_solver": "snes",
+            "snes_solver": {
+                "linear_solver": "mumps",
+                "absolute_tolerance": 1e-10,
+                "relative_tolerance": 1e-10,
+                "maximum_iterations": 30,
+            },
         }
         return parameters
 
 
-if __name__ == '__main__':
-    XDMF_options = {"flush_output": True,
-                    "functions_share_mesh": True,
-                    "rewrite_function_mesh": False}
+if __name__ == "__main__":
+    XDMF_options = {
+        "flush_output": True,
+        "functions_share_mesh": True,
+        "rewrite_function_mesh": False,
+    }
     rt = RayleighTaylor(2, 1, 1, 200, nx=60, ny=30)
     analysis = ParameterContinuation(
-        rt,
-        "gamma",
-        start=0,
-        end=15,
-        dt=.001,
-        saving_file_parameters=XDMF_options)
+        rt, "gamma", start=0, end=15, dt=0.01, saving_file_parameters=XDMF_options
+    )
     analysis.run()
