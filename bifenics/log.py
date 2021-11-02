@@ -15,4 +15,4 @@ def log(msg, warning=False, success=False):
         fmt = "\033[1;37;34m%s\033[0m"  # Blue
     if rank == 0:
         timestamp = "[%s] " % time.strftime("%H:%M:%S")
-        print(fmt % (timestamp + msg))
+        print(fmt % (timestamp + msg), flush=True)
