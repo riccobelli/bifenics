@@ -7,6 +7,7 @@ from dolfin import (
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
     XDMFFile,
+    set_log_level,
 )
 from bifenics.log import log
 import os
@@ -30,6 +31,7 @@ class ParameterContinuation(object):
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
+        set_log_level(30)
 
         if (
             rank == 0

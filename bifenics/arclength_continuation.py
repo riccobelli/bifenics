@@ -14,6 +14,7 @@ from dolfin import (
     Constant,
     project,
     XDMFFile,
+    set_log_level,
 )
 from bifenics.log import log
 import os
@@ -46,6 +47,7 @@ class ArclengthContinuation(object):
 
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
+        set_log_level(40)
 
         if (
             rank == 0
