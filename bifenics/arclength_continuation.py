@@ -20,6 +20,7 @@ from bifenics.log import log
 import os
 from mpi4py import MPI
 import copy
+import gc
 
 
 class ArclengthContinuation(object):
@@ -183,6 +184,7 @@ class ArclengthContinuation(object):
             self.load_arclength_function(u, actual_param, ac_state)
             log("Success", success=True)
             missing_prev = False
+            gc.collect()  # Garbage collection
         ac_state_copy.assign(ac_state)
         ac_state_prev_copy.assign(ac_state_prev)
         # Boundary conditions
@@ -241,6 +243,7 @@ class ArclengthContinuation(object):
                 ac_state_prev_copy.assign(ac_state_prev)
                 if missing_prev is True:
                     missing_prev = False
+                gc.collect()  # Garbage collection
             else:
                 # The nonlinear solver failed to converge, we halve the step and we
                 # start again the nonlinear solver.
@@ -254,3 +257,4 @@ class ArclengthContinuation(object):
                 # If we have already halved the step five times, we give up.
                 if n_halving >= self._max_halving:
                     log("Max halving reached! Ending simulation", warning=True)
+                gc.collect()  # Garbage collection
