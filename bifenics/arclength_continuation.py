@@ -144,6 +144,9 @@ class ArclengthContinuation(object):
             self.load_arclength_function(initial_guess, actual_param, ac_state_prev)
             missing_prev = True
 
+        # FIXME: the usage of both a parameter continuation and an arclength
+        # continuation uses a HUGE amount of memory! Should be fixed.
+        # In the meanwhile use a larger computer.
         else:
             log("Computing first step with a parameter continuation")
             u = Function(V_space)
