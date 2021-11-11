@@ -55,7 +55,6 @@ def parallelizemaxormin(maxormin):
             computed_maxormin = np.array(
                 [y for y in computed_maxormin if y is not None], dtype=np.double
             )
-            print(computed_maxormin)
             maxormin_proc = maxormin(computed_maxormin, comm)
 
         # Broadcast the verified result to all processes
