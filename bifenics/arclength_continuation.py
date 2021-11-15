@@ -218,8 +218,6 @@ class ArclengthContinuation(object):
             )
 
             log("Success, starting correction")
-            tmp = float(ac_state.split(deepcopy=True)[1])
-            log(f"Step {count}: {self._param_name} = {tmp}")
             status = ac_solver.solve()
             if status[1] is True:
                 # The nonlinear solver reached convergence, we need to save the solution
@@ -228,6 +226,7 @@ class ArclengthContinuation(object):
                 log("Nonlinear solver converged", success=True)
                 u_copy, param_copy = ac_state.split(deepcopy=True)
                 # We call the monitor to execute tasks on the solution
+                log(f"Step {count}: {self._param_name} = {float(param_copy)}")
                 self.problem.ac_monitor(
                     u_copy, param_copy, self.parameters, self._save_file
                 )
