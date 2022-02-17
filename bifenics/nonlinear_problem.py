@@ -21,6 +21,9 @@ class BifenicsProblem(object):
     def monitor(self, solution, param, output_file=None):
         pass
 
+    def ac_monitor(self, solution, ac_param, parameters, output_file=None):
+        pass
+
     def initial_guess(self, V):
         return Function(V)
 
@@ -33,8 +36,10 @@ class BifenicsProblem(object):
 
         u_testFunction, param_testFunction = split(ac_testFunction)
 
-        F = (param_testFunction * inner(u - u_prev, u - u_prev) * dx +
-             param_testFunction * inner(param - param_prev, param - param_prev) * dx -
-             param_testFunction * ds**2 * dx)
+        F = (
+            param_testFunction * inner(u - u_prev, u - u_prev) * dx
+            + param_testFunction * inner(param - param_prev, param - param_prev) * dx
+            - param_testFunction * ds ** 2 * dx
+        )
 
         return F
