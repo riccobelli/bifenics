@@ -41,6 +41,7 @@ class ArclengthContinuation(object):
         initial_direction=1,
         max_halving=10,
         first_step_with_parameter_continuation=False,
+        n_step_for_doubling=0,
         max_steps=300,
     ):
 
@@ -72,6 +73,7 @@ class ArclengthContinuation(object):
         self._first_step_with_parameter_continuation = (
             first_step_with_parameter_continuation
         )
+        self.n_step_for_doubling = n_step_for_doubling
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
@@ -95,6 +97,8 @@ class ArclengthContinuation(object):
     def secant_predictor(
         self, ac_state_prev, ac_state, ds, missing_previous_step=False, omega=1
     ):
+        # TODO: I am not satisfied with this predictor, should remove omega and adapt
+        # the step with ds
         if missing_previous_step is True:
             assign(ac_state_prev, ac_state)
             self.load_arclength_function(
@@ -211,10 +215,15 @@ class ArclengthContinuation(object):
         # Start analysis
         count = 0
         n_halving = 0
+        omega = 1  # Correction for the secant predictor in presence of halvings
         while count < self._max_steps and n_halving < self._max_halving:
             log("Computing the predictor (secant method)")
             self.secant_predictor(
-                ac_state_prev, ac_state, self._ds, missing_previous_step=missing_prev
+                ac_state_prev,
+                ac_state,
+                self._ds,
+                missing_previous_step=missing_prev,
+                omega=omega,
             )
 
             log("Success, starting correction")
@@ -243,6 +252,17 @@ class ArclengthContinuation(object):
                 ac_state_prev_copy.assign(ac_state_prev)
                 if missing_prev is True:
                     missing_prev = False
+                if status[0] <= self.n_step_for_doubling and n_halving > 0:
+                    self._ds.assign(self._ds * 2)
+                    omega = omega * 2
+                    n_halving += -1
+                    log(
+                        f"Converged in less than {self.n_step_for_doubling+1} steps, "
+                        + "doubling ds",
+                        success=True,
+                    )
+                else:
+                    omega = 1
             else:
                 # The nonlinear solver failed to converge, we halve the step and we
                 # start again the nonlinear solver.
@@ -253,6 +273,7 @@ class ArclengthContinuation(object):
                 # predictor.
                 ac_state.assign(ac_state_copy)
                 ac_state_prev.assign(ac_state_prev_copy)
+                omega = omega / 2
                 # If we have already halved the step five times, we give up.
                 if n_halving >= self._max_halving:
                     log("Max halving reached! Ending simulation", warning=True)
