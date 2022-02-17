@@ -151,7 +151,6 @@ class ArclengthContinuation(object):
         tangent_solver = NonlinearVariationalSolver(tangent_problem)
         tangent_solver.parameters.update(self._solver_params)
         status = tangent_solver.solve()
-        print(status)
         if status[1] is False:
             log(
                 "Tangent solver did not converge! Fallback to secant predictor",
