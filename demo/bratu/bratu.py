@@ -72,6 +72,7 @@ if __name__ == "__main__":
         ds=0.1,
         saving_file_parameters=XDMF_options,
         first_step_with_parameter_continuation=False,
+        predictor_type="secant",
     )
     analysis.run()
     comm = MPI.COMM_WORLD

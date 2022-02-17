@@ -43,6 +43,7 @@ class ArclengthContinuation(object):
         first_step_with_parameter_continuation=False,
         n_step_for_doubling=0,
         max_steps=300,
+        predictor_type="tangent",  # tangent or secant
     ):
 
         comm = MPI.COMM_WORLD
@@ -77,6 +78,8 @@ class ArclengthContinuation(object):
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
+
+        self.predictor_type = predictor_type
 
         # Disable error on non nonconvergence
         if "nonlinear_solver" not in self._solver_params:
@@ -217,14 +220,25 @@ class ArclengthContinuation(object):
         n_halving = 0
         omega = 1  # Correction for the secant predictor in presence of halvings
         while count < self._max_steps and n_halving < self._max_halving:
-            log("Computing the predictor (secant method)")
-            self.secant_predictor(
-                ac_state_prev,
-                ac_state,
-                self._ds,
-                missing_previous_step=missing_prev,
-                omega=omega,
-            )
+            log(f"Computing the predictor ({self.predictor_type} method)")
+            if self.predictor_type == "secant":
+                self.secant_predictor(
+                    ac_state_prev,
+                    ac_state,
+                    self._ds,
+                    missing_previous_step=missing_prev,
+                    omega=omega,
+                )
+            elif self.predictor_type == "tangent":
+                self.tangent_predictor(
+                    ac_state_prev,
+                    ac_state,
+                    self._ds,
+                    missing_previous_step=missing_prev,
+                    omega=omega,
+                )
+            else:
+                raise ValueError("Predictor not implemented. Modify the predictor_type")
 
             log("Success, starting correction")
             status = ac_solver.solve()
