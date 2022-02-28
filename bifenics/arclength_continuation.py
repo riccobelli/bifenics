@@ -7,18 +7,23 @@ from dolfin import (
     derivative,
     assign,
     TestFunction,
+    TestFunctions,
     TrialFunction,
     NonlinearVariationalProblem,
     NonlinearVariationalSolver,
     split,
+    inner,
     Constant,
     XDMFFile,
+    dx,
+    assemble,
     set_log_level,
 )
 from bifenics.log import log
 import os
 from mpi4py import MPI
 import copy
+import ufl.algorithms
 
 
 class ArclengthContinuation(object):
@@ -43,6 +48,7 @@ class ArclengthContinuation(object):
         first_step_with_parameter_continuation=False,
         n_step_for_doubling=0,
         max_steps=300,
+        predictor_type="tangent",  # tangent or secant
     ):
 
         comm = MPI.COMM_WORLD
@@ -77,6 +83,8 @@ class ArclengthContinuation(object):
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
+
+        self.predictor_type = predictor_type
 
         # Disable error on non nonconvergence
         if "nonlinear_solver" not in self._solver_params:
@@ -113,6 +121,46 @@ class ArclengthContinuation(object):
             ac_state.vector()[:] - ac_state_prev.vector()[:]
         )
         assign(ac_state, predictor)
+        assign(ac_state_prev, ac_state_bu)
+
+    def tangent_predictor(
+        self, ac_state_prev, ac_state, ds, bcs, missing_previous_step=False, omega=1
+    ):
+        ac_state_bu = ac_state.copy(deepcopy=True)
+        V = ac_state.function_space()
+        predictor = Function(V)
+        u, ac_param = split(ac_state)
+        predictor_u, predictor_param = split(predictor)
+        v, mu = TestFunctions(V)
+        state_residual = self.problem.residual(u, v, self.parameters)
+        if missing_previous_step is True:
+            normalization = mu * (ds * self._initial_direction - predictor_param) * dx
+        else:
+            normalization = (
+                mu * (inner(predictor, ac_state - ac_state_prev) - ds ** 2) * dx
+            )
+        tangent_residual = ufl.algorithms.expand_derivatives(
+            derivative(state_residual, ac_state, predictor) + normalization
+        )
+        tangent_jacoobian = ufl.algorithms.expand_derivatives(
+            derivative(tangent_residual, predictor, TrialFunction(V))
+        )
+        tangent_problem = NonlinearVariationalProblem(
+            tangent_residual, predictor, bcs, tangent_jacoobian
+        )
+        tangent_solver = NonlinearVariationalSolver(tangent_problem)
+        tangent_solver.parameters.update(self._solver_params)
+        status = tangent_solver.solve()
+        if status[1] is False:
+            log(
+                "Tangent solver did not converge! Fallback to secant predictor",
+                warning=True,
+            )
+            self.secant_predictor(
+                ac_state_prev, ac_state, ds, missing_previous_step, omega
+            )
+            return
+        ac_state.vector()[:] = ac_state.vector()[:] + predictor.vector()[:]
         assign(ac_state_prev, ac_state_bu)
 
     def save_function(self, function, param, count, xdmf_file):
@@ -217,14 +265,26 @@ class ArclengthContinuation(object):
         n_halving = 0
         omega = 1  # Correction for the secant predictor in presence of halvings
         while count < self._max_steps and n_halving < self._max_halving:
-            log("Computing the predictor (secant method)")
-            self.secant_predictor(
-                ac_state_prev,
-                ac_state,
-                self._ds,
-                missing_previous_step=missing_prev,
-                omega=omega,
-            )
+            log(f"Computing the predictor ({self.predictor_type} method)")
+            if self.predictor_type == "secant":
+                self.secant_predictor(
+                    ac_state_prev,
+                    ac_state,
+                    self._ds,
+                    missing_previous_step=missing_prev,
+                    omega=omega,
+                )
+            elif self.predictor_type == "tangent":
+                self.tangent_predictor(
+                    ac_state_prev,
+                    ac_state,
+                    self._ds,
+                    bcs,
+                    missing_previous_step=missing_prev,
+                    omega=omega,
+                )
+            else:
+                raise ValueError("Predictor not implemented. Modify the predictor_type")
 
             log("Success, starting correction")
             status = ac_solver.solve()
