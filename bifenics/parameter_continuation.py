@@ -181,6 +181,7 @@ class ParameterContinuation(object):
                             ok = 1
                             log("Max halving reached! Ending simulation", warning=True)
                             goOn = False
+        return (u, self.parameters)
 
     def pc_nonlinear_solver(self, residual, u, bcs, J):
         dolfin_problem = NonlinearVariationalProblem(residual, u, bcs, J)

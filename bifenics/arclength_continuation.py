@@ -337,3 +337,4 @@ class ArclengthContinuation(object):
                 # If we have already halved the step five times, we give up.
                 if n_halving >= self._max_halving:
                     log("Max halving reached! Ending simulation", warning=True)
+        return (ac_state, self.parameters)
