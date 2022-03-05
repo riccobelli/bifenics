@@ -256,12 +256,12 @@ class ArclengthContinuation(object):
             Constant(ac_state.split()[1] + self._initial_direction),
             old_tangent,
         )
-        param_float = self._param_start
+        param_copy = Constant(self._param_start)
 
         while (
             count < self._max_steps
             and n_halving < self._max_halving
-            and self._param_start <= param_float <= self._param_end
+            and self._param_start <= float(param_copy) <= self._param_end
         ):
             log(f"Computing the predictor ({self.predictor_type} method)")
             ac_state_bu = ac_state.copy(deepcopy=True)
@@ -306,17 +306,17 @@ class ArclengthContinuation(object):
                 # and to prepare for the next step, first we separate the solution to
                 # the original problem and the parameter
                 log("Nonlinear solver converged", success=True)
-                u_copy, param_float = ac_state.split(deepcopy=True)
+                u_copy, param_copy = ac_state.split(deepcopy=True)
                 # We call the monitor to execute tasks on the solution
-                log(f"Step {count}: {self._param_name} = {float(param_float)}")
+                log(f"Step {count}: {self._param_name} = {float(param_copy)}")
                 self.problem.ac_monitor(
-                    u_copy, param_float, self.parameters, self._save_file
+                    u_copy, param_copy, self.parameters, self._save_file
                 )
                 # If needed, we save the file. At the same time-step (i.e. the value of
                 # "count"), we save both the solution of the original problem and the
                 # parameter
                 if self._save_output is True:
-                    self.save_function(u_copy, param_float, count, self._save_file)
+                    self.save_function(u_copy, param_copy, count, self._save_file)
                 # Ready for the next step! We increment count and we "back up" our
                 # solution
                 count += 1
