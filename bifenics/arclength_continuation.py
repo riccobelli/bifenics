@@ -107,24 +107,20 @@ class ArclengthContinuation(object):
     ):
         # TODO: I am not satisfied with this predictor, should remove omega and adapt
         # the step with ds
+        ac_space = ac_state.function_space()
+        predictor = Function(ac_space)
         if missing_previous_step is True:
-            assign(ac_state_prev, ac_state)
             self.load_arclength_function(
-                ac_state.split()[0],
-                Constant(ac_state.split()[1] + self._initial_direction * ds),
-                ac_state,
+                predictor.split()[0],
+                Constant(ac_state.split()[1] + ds * self._initial_direction),
+                predictor,
             )
-            return
-        ac_state_bu = ac_state.copy(deepcopy=True)
-        predictor = Function(ac_state.function_space())
-        predictor.vector()[:] = ac_state.vector()[:] + omega * (
-            ac_state.vector()[:] - ac_state_prev.vector()[:]
-        )
-        assign(ac_state, predictor)
-        assign(ac_state_prev, ac_state_bu)
+        else:
+            predictor.vector()[:] = omega * (ac_state.vector() - ac_state_prev.vector())
+        return predictor
 
     def tangent_predictor(
-        self, ac_state_prev, ac_state, ds, bcs, missing_previous_step=False, omega=1
+        self, old_predictor, ac_state, ds, bcs, missing_previous_step=False, omega=1
     ):
         ac_state_bu = ac_state.copy(deepcopy=True)
         V = ac_state.function_space()
@@ -134,11 +130,10 @@ class ArclengthContinuation(object):
         v, mu = TestFunctions(V)
         state_residual = self.problem.residual(u, v, self.parameters)
         if missing_previous_step is True:
-            normalization = mu * (ds * self._initial_direction - predictor_param) * dx
+            normalization = mu * (self._initial_direction - predictor_param) * dx
+            old_predictor = Function(V)
         else:
-            normalization = (
-                mu * (inner(predictor, ac_state - ac_state_prev) - ds ** 2) * dx
-            )
+            normalization = mu * (inner(predictor, old_predictor) - Constant(1)) * dx
         tangent_residual = ufl.algorithms.expand_derivatives(
             derivative(state_residual, ac_state, predictor) + normalization
         )
@@ -151,17 +146,10 @@ class ArclengthContinuation(object):
         tangent_solver = NonlinearVariationalSolver(tangent_problem)
         tangent_solver.parameters.update(self._solver_params)
         status = tangent_solver.solve()
-        if status[1] is False:
-            log(
-                "Tangent solver did not converge! Fallback to secant predictor",
-                warning=True,
-            )
-            self.secant_predictor(
-                ac_state_prev, ac_state, ds, missing_previous_step, omega
-            )
-            return
-        ac_state.vector()[:] = ac_state.vector()[:] + predictor.vector()[:]
-        assign(ac_state_prev, ac_state_bu)
+
+        if status[1] is True:
+            old_predictor.assign(predictor)
+        return (predictor, status[1])
 
     def save_function(self, function, param, count, xdmf_file):
         # We save the function into the output file
@@ -264,10 +252,17 @@ class ArclengthContinuation(object):
         count = 0
         n_halving = 0
         omega = 1  # Correction for the secant predictor in presence of halvings
+        old_tangent = Function(ac_space)
+        self.load_arclength_function(
+            old_tangent.split()[0],
+            Constant(ac_state.split()[1] + self._initial_direction),
+            old_tangent,
+        )
         while count < self._max_steps and n_halving < self._max_halving:
             log(f"Computing the predictor ({self.predictor_type} method)")
+            ac_state_bu = ac_state.copy(deepcopy=True)
             if self.predictor_type == "secant":
-                self.secant_predictor(
+                predictor = self.secant_predictor(
                     ac_state_prev,
                     ac_state,
                     self._ds,
@@ -275,17 +270,31 @@ class ArclengthContinuation(object):
                     omega=omega,
                 )
             elif self.predictor_type == "tangent":
-                self.tangent_predictor(
-                    ac_state_prev,
+                tangent, tangent_solver_success = self.tangent_predictor(
+                    old_tangent,
                     ac_state,
                     self._ds,
                     bcs,
                     missing_previous_step=missing_prev,
                     omega=omega,
                 )
+                if tangent_solver_success is False:
+                    log(
+                        "Tangent solver did not converge! Fallback to secant predictor",
+                        warning=True,
+                    )
+                    predictor = self.secant_predictor(
+                        ac_state_prev, ac_state, self._ds, missing_prev, omega
+                    )
+                else:
+                    predictor = Function(ac_space)
+                    predictor.vector()[:] = (
+                        ac_state.vector() + self._ds * tangent.vector()
+                    )
             else:
                 raise ValueError("Predictor not implemented. Modify the predictor_type")
-
+            assign(ac_state, predictor)
+            assign(ac_state_prev, ac_state_bu)
             log("Success, starting correction")
             status = ac_solver.solve()
             if status[1] is True:
