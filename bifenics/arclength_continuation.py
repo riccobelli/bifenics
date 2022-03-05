@@ -105,8 +105,6 @@ class ArclengthContinuation(object):
     def secant_predictor(
         self, ac_state_prev, ac_state, ds, missing_previous_step=False, omega=1
     ):
-        # TODO: I am not satisfied with this predictor, should remove omega and adapt
-        # the step with ds
         ac_space = ac_state.function_space()
         predictor = Function(ac_space)
         if missing_previous_step is True:
