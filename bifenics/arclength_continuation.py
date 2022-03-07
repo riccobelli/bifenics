@@ -114,7 +114,9 @@ class ArclengthContinuation(object):
                 predictor,
             )
         else:
-            predictor.vector()[:] = omega * (ac_state.vector() - ac_state_prev.vector())
+            predictor.vector()[:] = ac_state.vector()[:] + omega * (
+                ac_state.vector()[:] - ac_state_prev.vector()[:]
+            )
         return predictor
 
     def tangent_predictor(
