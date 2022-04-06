@@ -108,9 +108,10 @@ class ArclengthContinuation(object):
         ac_space = ac_state.function_space()
         predictor = Function(ac_space)
         if missing_previous_step is True:
+            state, param = ac_state.split(deepcopy=True)
             self.load_arclength_function(
-                predictor.split()[0],
-                Constant(ac_state.split()[1] + ds * self._initial_direction),
+                state,
+                Constant(param + ds * self._initial_direction),
                 predictor,
             )
         else:
