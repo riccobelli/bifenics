@@ -264,7 +264,9 @@ class ArclengthContinuation(object):
         while (
             count < self._max_steps
             and n_halving < self._max_halving
-            and self._param_start <= float(param_copy) <= self._param_end
+            and min(self._param_start, self._param_end)
+            <= float(param_copy)
+            <= max(self._param_start, self._param_end)
         ):
             log(f"Computing the predictor ({self.predictor_type} method)")
             ac_state_bu = ac_state.copy(deepcopy=True)
