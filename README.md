@@ -11,7 +11,7 @@ This library implement some continuation algorithms to numerically solve bifurca
 ## Installation
 In the repository directory, run
 ```
-pip3 install --user -e 
+pip3 install --user -e .
 ````
 
 ## Citing
