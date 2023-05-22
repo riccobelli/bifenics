@@ -1,4 +1,4 @@
-# BIFEniCS: a library to solve bifurcation problems in FEniCS
+# BiFEniCS: a library to solve bifurcation problems in FEniCS
 
 This library implement some continuation algorithms to numerically solve bifurcation problems using FEniCS (http://fenicsproject.org).
 
