@@ -1,4 +1,23 @@
-# Module collecting several class, each being a general continuation method
+# Copyright (C) 2023 Davide Riccobelli
+#
+# This file is part of BIFEniCS library for FEniCS.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Lesser General Public License as published by
+# the Free Software Foundation, either version 2.1 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+# GNU Lesser General Public License for more details.
+#
+# You should have received a copy of the GNU Lesser General Public License
+# along with this program. If not, see <http://www.gnu.org/licenses/>.
+
+
+# This file implements an arclength continuation algorithm.
+
 from dolfin import (
     Function,
     FiniteElement,
@@ -26,10 +45,6 @@ import copy
 
 
 class ArclengthContinuation(object):
-    # Legenda:
-    # z: funzione incognita del problema originale
-    # param: parametro di controllo del problema di biforcazione
-    # ac_state: funzione contente z e param, cioè [z, param]
     def __init__(
         self,
         problem,
@@ -181,9 +196,8 @@ class ArclengthContinuation(object):
             self.load_arclength_function(initial_guess, actual_param, ac_state_prev)
             missing_prev = True
 
-        # FIXME: the usage of both a parameter continuation and an arclength
+        # FIXME: the use of both a parameter continuation and an arclength
         # continuation uses a HUGE amount of memory! Should be fixed.
-        # In the meanwhile use a larger computer.
         else:
             log("Computing first step with a parameter continuation")
             u = Function(V_space)
