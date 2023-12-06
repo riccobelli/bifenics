@@ -23,7 +23,6 @@ from bifenics.log import log
 import os
 from mpi4py import MPI
 import copy
-import ufl.algorithms
 
 
 class ArclengthContinuation(object):
@@ -50,7 +49,6 @@ class ArclengthContinuation(object):
         max_steps=300,
         predictor_type="tangent",  # tangent or secant
     ):
-
         comm = MPI.COMM_WORLD
         rank = comm.Get_rank()
         set_log_level(40)
@@ -135,12 +133,10 @@ class ArclengthContinuation(object):
             old_predictor = Function(V)
         else:
             normalization = mu * (inner(predictor, old_predictor) - Constant(1)) * dx
-        tangent_residual = ufl.algorithms.expand_derivatives(
+        tangent_residual = (
             derivative(state_residual, ac_state, predictor) + normalization
         )
-        tangent_jacoobian = ufl.algorithms.expand_derivatives(
-            derivative(tangent_residual, predictor, TrialFunction(V))
-        )
+        tangent_jacoobian = derivative(tangent_residual, predictor, TrialFunction(V))
         tangent_problem = NonlinearVariationalProblem(
             tangent_residual, predictor, bcs, tangent_jacoobian
         )
