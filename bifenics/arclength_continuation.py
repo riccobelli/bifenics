@@ -22,6 +22,7 @@ from dolfin import (
     Function,
     FiniteElement,
     FunctionSpace,
+    FunctionAssigner,
     MixedElement,
     derivative,
     assign,
@@ -257,6 +258,42 @@ class ArclengthContinuation(object):
         )
         J = derivative(residual, ac_state, TrialFunction(ac_space))
         ac_problem = NonlinearVariationalProblem(residual, ac_state, bcs, J)
+
+        # by default, say there are no constraints
+        constraints_present = False
+        try:
+            # fetch the primal variable
+            u = ac_state.sub(0)
+            # check if the problem requires constraints on the primal variable
+            [v_lower_bound, v_upper_bound] = self.problem.constraints(u)
+            # then there are constraints
+            constraints_present = True
+        except:
+            # nothing to be done
+            pass
+
+        # if there are any constraints, apply them when solving the nonlinear problem {ac_problem}
+        if constraints_present:
+            # constraints for functions on the mixed function space
+            lower_bound = Function(ac_space)
+            upper_bound = Function(ac_space)
+
+            # craft constraints for the arclength variable
+            ac_lower_bound = Function(self.param_space)
+            min_val = min(self._param_start, self._param_end)
+            ac_lower_bound.vector()[:] = min_val - 2 * self._ds
+            ac_upper_bound = Function(self.param_space)
+            max_val = max(self._param_start, self._param_end)
+            ac_upper_bound.vector()[:] = max_val + 2 * self._ds
+
+            # aggregate the constraints of the primal variable and the arclength variable
+            fa = FunctionAssigner(ac_space, [V_space, self.param_space])
+            fa.assign(lower_bound, [v_lower_bound, ac_lower_bound])
+            fa.assign(upper_bound, [v_upper_bound, ac_upper_bound])
+
+            # apply the constraints
+            ac_problem.set_bounds(lower_bound, upper_bound)
+
         ac_solver = NonlinearVariationalSolver(ac_problem)
         ac_solver.parameters.update(self._solver_params)
         # Start analysis
