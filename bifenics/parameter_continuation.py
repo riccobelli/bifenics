@@ -27,6 +27,8 @@ class ParameterContinuation(object):
         saving_file_parameters={},
         output_folder="output",
         remove_old_output_folder=True,
+        max_dt=1,
+        max_step_for_dt_doubling=0,
     ):
 
         comm = MPI.COMM_WORLD
@@ -47,6 +49,8 @@ class ParameterContinuation(object):
         self._param_end = end
         self._dt = dt
         self._min_dt = min_dt
+        self._max_dt = max_dt
+        self._max_step_for_dt_doubling = max_step_for_dt_doubling
         self._solver_params = {}
         self._save_file = XDMFFile(output_folder + "/results.xdmf")
         self._save_file.parameters.update(saving_file_parameters)
@@ -127,6 +131,17 @@ class ParameterContinuation(object):
                             )
                         u0.assign(u)
                         ok = 1
+                        if (
+                            status[0] <= self._max_step_for_dt_doubling
+                            and self._dt < self._max_dt
+                        ):
+                            log(
+                                f"Nonlinear solver converged in less than {self._max_step_for_dt_doubling} "
+                                + "iterations, doubling increment of the parameter",
+                                success=True,
+                            )
+                            self._dt = self._dt * 2
+                            n_halving += -1
                     else:
                         n_halving += 1
                         # The nonlinear solver failed to converge, we halve the step and
