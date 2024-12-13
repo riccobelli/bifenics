@@ -42,6 +42,7 @@ from dolfin import (
 from bifenics.log import log
 import os
 from mpi4py import MPI
+from bifenics.nonlinear_solver import SNESNonlinearSolver
 import copy
 
 
@@ -172,6 +173,8 @@ class ArclengthContinuation(object):
     def run(self):
         # Setting mesh and defining functional spaces
         mesh = self.problem.mesh()
+        # take note of the problem's null space
+        self._null_space = self.problem.null_space()
         V_space = self.problem.function_space(mesh)
         V_elem = V_space.ufl_element()
         param_elem = FiniteElement("R", mesh.ufl_cell(), 0)
@@ -257,7 +260,7 @@ class ArclengthContinuation(object):
             ac_state, ac_state_prev, ac_testFunction, self._ds
         )
         J = derivative(residual, ac_state, TrialFunction(ac_space))
-        ac_problem = NonlinearVariationalProblem(residual, ac_state, bcs, J)
+        # ac_problem = NonlinearVariationalProblem(residual, ac_state, bcs, J)
 
         # by default, say there are no constraints
         constraints_present = False
@@ -272,30 +275,13 @@ class ArclengthContinuation(object):
             # nothing to be done
             pass
 
-        # if there are any constraints, apply them when solving the nonlinear problem {ac_problem}
-        if constraints_present:
-            # constraints for functions on the mixed function space
-            lower_bound = Function(ac_space)
-            upper_bound = Function(ac_space)
+        # create a SNES solver
+        ac_solver = SNESNonlinearSolver(residual, ac_state, bcs, J)
 
-            # craft constraints for the arclength variable
-            ac_lower_bound = Function(self.param_space)
-            min_val = min(self._param_start, self._param_end)
-            ac_lower_bound.vector()[:] = min_val - 2 * self._ds
-            ac_upper_bound = Function(self.param_space)
-            max_val = max(self._param_start, self._param_end)
-            ac_upper_bound.vector()[:] = max_val + 2 * self._ds
+        # if the problem has a null space, attach it to the solver
+        if self._null_space:
+            ac_solver.set_null_space(self._null_space)
 
-            # aggregate the constraints of the primal variable and the arclength variable
-            fa = FunctionAssigner(ac_space, [V_space, self.param_space])
-            fa.assign(lower_bound, [v_lower_bound, ac_lower_bound])
-            fa.assign(upper_bound, [v_upper_bound, ac_upper_bound])
-
-            # apply the constraints
-            ac_problem.set_bounds(lower_bound, upper_bound)
-
-        ac_solver = NonlinearVariationalSolver(ac_problem)
-        ac_solver.parameters.update(self._solver_params)
         # Start analysis
         count = 0
         n_halving = 0
@@ -353,6 +339,7 @@ class ArclengthContinuation(object):
             assign(ac_state_prev, ac_state_bu)
             log("Success, starting correction")
             status = ac_solver.solve()
+            ac_state = ac_solver.state
             if status[1] is True:
                 # The nonlinear solver reached convergence, we need to save the solution
                 # and to prepare for the next step, first we separate the solution to
