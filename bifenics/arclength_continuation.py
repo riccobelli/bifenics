@@ -36,7 +36,6 @@ from dolfin import (
     Constant,
     XDMFFile,
     dx,
-    assemble,
     set_log_level,
 )
 from bifenics.log import log
@@ -63,6 +62,7 @@ class ArclengthContinuation(object):
         first_step_with_parameter_continuation=False,
         n_step_for_doubling=0,
         max_steps=300,
+        periodic_bc=None,
         predictor_type="tangent",  # tangent or secant
     ):
         comm = MPI.COMM_WORLD
@@ -94,6 +94,7 @@ class ArclengthContinuation(object):
             first_step_with_parameter_continuation
         )
         self.n_step_for_doubling = n_step_for_doubling
+        self._periodic_bc = periodic_bc
 
         # Update adding user defined solver Parameters
         self._solver_params.update(problem.solver_parameters())
@@ -177,7 +178,7 @@ class ArclengthContinuation(object):
         param_elem = FiniteElement("R", mesh.ufl_cell(), 0)
         self.param_space = FunctionSpace(mesh, param_elem)
         ac_element = MixedElement([V_elem, param_elem])
-        ac_space = FunctionSpace(mesh, ac_element)
+        ac_space = FunctionSpace(mesh, ac_element, constrained_domain=self._periodic_bc)
 
         # Creating functions in arclength spaces
         ac_state = Function(ac_space)
