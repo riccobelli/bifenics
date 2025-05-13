@@ -1,4 +1,4 @@
-# Copyright (C) 2023 Davide Riccobelli
+# Copyright (C) 2025 Davide Riccobelli
 #
 # This file is part of BIFEniCS library for FEniCS.
 #
